@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1193d4",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101c22",
+                        "text-light": "#101c22",
+                        "text-dark": "#f6f7f8",
+                        "text-muted-light": "#6b7280",
+                        "text-muted-dark": "#9ca3af",
+                        "border-light": "#e5e7eb",
+                        "border-dark": "#374151"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.75rem",
+                        "xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="flex flex-col min-h-screen">
+<header class="sticky top-0 z-10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm border-b border-border-light dark:border-border-dark">
+<div class="flex items-center justify-between p-4">
+<div class="w-10"></div>
+<h1 class="text-lg font-bold text-text-light dark:text-text-dark">Patients</h1>
+<button class="flex items-center justify-center w-10 h-10 rounded-full text-primary">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+<div class="px-4 pb-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted-light dark:text-text-muted-dark">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-full text-text-light dark:text-text-dark placeholder-text-muted-light dark:placeholder-text-muted-dark focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Search patients" type="text"/>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto">
+<div class="p-4">
+<h2 class="text-xl font-bold text-text-light dark:text-text-dark mb-4">Referred Patients</h2>
+<div class="space-y-3">
+<div class="flex items-center gap-4 bg-background-light dark:bg-background-dark p-3 rounded-lg border border-border-light dark:border-border-dark shadow-sm">
+<img alt="Sophia Patel" class="h-14 w-14 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkPnzwbahYYKeaMnbPz8IVRdbuZeBAP87iU-jR_PrzO0QfwOBUzS7JNaRi-1VXouoLzoZEJe6y8iFt3MIS1lZ8n89JT25m_ejEqnzJYSjvaVYUFNWeyre9qOhc75qfXDa92_YjoO5hVeqwRYgiT28s2oquCy5E_I33gBoNi0m5PEOEqkRGYrBoGCeWdPjX5NpZy0pbEGzj9TSmH4aaPtxiA8yA6zBmiUHCUfM5S_gGguCVlRIkpsLow9LVInD02bt-ZIyVFKw5ACk"/>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-semibold text-text-light dark:text-text-dark">Sophia Patel</p>
+<p class="text-sm text-text-muted-light dark:text-text-muted-dark">Referred by Dr. Anya Sharma</p>
+</div>
+<span class="text-xs font-medium text-red-500 bg-red-100 dark:bg-red-500/20 dark:text-red-400 px-2 py-1 rounded-full">High-Risk</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-muted-light dark:text-text-muted-dark">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 bg-background-light dark:bg-background-dark p-3 rounded-lg border border-border-light dark:border-border-dark shadow-sm">
+<img alt="Isabella Rossi" class="h-14 w-14 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7aUyrXtvajqm4yFZOcrixB0RIdJtEW-ina_D8OVq0FaD3wBzGBvE9otdK9h6l16nNeqtkgiz9q8hyTcSPxaZEIKiTR4QRIU6odo0NGVdNeKotEQ_WVdg18-SVSLqBmGAMr9UyvvPruYXD2z9X6kXEU7IrY8pIGjIf1Wm_x36W2JzL1REgPAZdXVmeW6TjdtcuFyVdm-TmQEAgQFtrpBLhIJ2jPyMXxNTiY0jVajlD-PsAI8M8mTfNcIlDd_NxUrfsUmHuz9k_yOQ"/>
+<div class="flex-1">
+<p class="font-semibold text-text-light dark:text-text-dark">Isabella Rossi</p>
+<p class="text-sm text-text-muted-light dark:text-text-muted-dark">Referred by Dr. Ethan Lee</p>
+</div>
+<span class="material-symbols-outlined text-text-muted-light dark:text-text-muted-dark">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 bg-background-light dark:bg-background-dark p-3 rounded-lg border border-border-light dark:border-border-dark shadow-sm">
+<img alt="Olivia Kim" class="h-14 w-14 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmhJikwdm4jeN44qYxa6P7zgfSBVEBq4BXQADT9b-qThEfLRMqDJ2vRFaG8fpFagwyEm-Swy-CwEAs12aRlzhpNxjHvXbjLGC0zeckD8NNqH2ynSKSIlyCkDCrESiKmGQ5uRnhmLYMiJNyooenksg5tVmCIK3N5zmX4rZFU-2-ZKdYoUirK44Q-AcsZT-aWK_Ye0sGgaAoh6qeRupcxaM4pK6knOnp5hOj9OqImbHOmDMu-eOg314GfovoSJP2mOQnyGf3iTy01T8"/>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-semibold text-text-light dark:text-text-dark">Olivia Kim</p>
+<p class="text-sm text-text-muted-light dark:text-text-muted-dark">Referred by Dr. Marcus Chen</p>
+</div>
+<span class="text-xs font-medium text-orange-500 bg-orange-100 dark:bg-orange-500/20 dark:text-orange-400 px-2 py-1 rounded-full">Complex</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-muted-light dark:text-text-muted-dark">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 bg-background-light dark:bg-background-dark p-3 rounded-lg border border-border-light dark:border-border-dark shadow-sm">
+<img alt="Ava Rodriguez" class="h-14 w-14 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAla2BmjyaRFPYJgRoppJV7W37xdAr2vYvdcoFxifuvaUjPk8Uh1AS3cyrNC-ns2Ssuextp3p6oi313JpT5RNRiqKtnNoZ3ZIsYIMZd6yVdQ7hmtVbN97lsrj7ikqOn1mwUFChGPOgLNEyNQx8N-Qn7b-enHCMItbAvDEgcyA5g-SlbxqpIorrYn_vdiYQOvu5To7ozcWOq9QXjGoJC9XVdE7BFm7Zqnsk-AfMdoz75ngjuYa4ErG0TrUv7tmjQptqrS6b5qATWc0"/>
+<div class="flex-1">
+<p class="font-semibold text-text-light dark:text-text-dark">Ava Rodriguez</p>
+<p class="text-sm text-text-muted-light dark:text-text-muted-dark">Referred by Dr. Chloe Davis</p>
+</div>
+<span class="material-symbols-outlined text-text-muted-light dark:text-text-muted-dark">chevron_right</span>
+</div>
+</div>
+</div>
+</main>
+<footer class="sticky bottom-0 bg-background-light dark:bg-background-dark border-t border-border-light dark:border-border-dark">
+<nav class="flex justify-around p-2">
+<a class="flex flex-col items-center justify-center w-full py-1 rounded-lg bg-primary/10 dark:bg-primary/20 text-primary" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="text-xs font-medium">Patients</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full py-1 rounded-lg text-text-muted-light dark:text-text-muted-dark hover:bg-primary/10 hover:dark:bg-primary/20 hover:text-primary" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="text-xs font-medium">Consultations</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full py-1 rounded-lg text-text-muted-light dark:text-text-muted-dark hover:bg-primary/10 hover:dark:bg-primary/20 hover:text-primary" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-xs font-medium">Settings</span>
+</a>
+</nav>
+</footer>
+</div>
+
+</body></html>
