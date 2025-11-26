@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:keneya_muso/routes.dart';
 
 class SuiviOptionsPanel extends StatefulWidget {
   const SuiviOptionsPanel({super.key});

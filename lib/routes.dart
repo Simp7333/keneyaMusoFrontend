@@ -2,24 +2,28 @@ import 'package:flutter/material.dart';
 
 // Pages communes
 import 'pages/common/page_accueil.dart';
-import 'pages/common/page_connexion.dart';
-import 'pages/common/page_inscription.dart';
+import 'pages/patiente/page_connexion.dart';
+import 'pages/patiente/page_inscription.dart';
 import 'pages/common/page_choix_profil.dart';
+import 'pages/common/page_not_found.dart';
 import 'pages/common/mot_de_passe_oublie.dart';
 
 // Pages patiente
 import 'pages/patiente/prenatale/page_tableau_bord.dart';
+import 'pages/patiente/page_detail_video.dart';
 import 'pages/patiente/prenatale/enregistrement_grossesse_page.dart';
+import 'pages/patiente/prenatale/dossier_cpn_page.dart';
 import 'pages/patiente/type_suivi_page.dart';
-import 'pages/patiente/page_profil.dart';
-import 'pages/patiente/page_parametres.dart';
-import 'pages/patiente/page_notifications.dart';
+import 'pages/common/page_profil.dart';
+// import 'pages/common/page_parametres.dart'; // Fichier supprimé
 import 'pages/patiente/page_contenu.dart';
-import 'pages/patiente/prenatale/page_formulaire_contact.dart';
+// import 'pages/patiente/prenatale/page_formulaire_contact.dart'; // Fichier supprimé
 import 'pages/patiente/personnel_page.dart';
 import 'pages/patiente/page_profil_personnel.dart';
-import 'pages/patiente/postnatale/formulaire_postnatale_page.dart';
 import 'pages/patiente/postnatale/dashboard_postnatale_page.dart';
+import 'pages/patiente/postnatale/enregistrement_accouchement_page.dart';
+import 'pages/patiente/postnatale/dossier_post_page.dart';
+import 'pages/patiente/page_discussion.dart';
 
 // Pages sage-femme
 // À venir...
@@ -28,10 +32,12 @@ import 'pages/patiente/postnatale/dashboard_postnatale_page.dart';
 import 'pages/gynecologue/page_connexion_pro.dart';
 import 'pages/gynecologue/page_inscription_pro.dart';
 import 'pages/gynecologue/page_dashboard_pro.dart';
-import 'pages/gynecologue/page_choix_ajout_suivi.dart';
 import 'pages/gynecologue/page_patientes.dart';
-import 'pages/gynecologue/ajout_prenatal.dart';
-import 'pages/gynecologue/ajout_postnatale.dart';
+import 'pages/gynecologue/page_accompagnement.dart';
+import 'pages/common/page_parametres_pro.dart';
+import 'pages/gynecologue/page_alertes.dart';
+import 'pages/common/page_notifications_pro.dart';
+import 'pages/gynecologue/page_profil_pro.dart';
 
 class AppRoutes {
   // Routes communes
@@ -43,19 +49,24 @@ class AppRoutes {
 
   // Routes patiente
   static const String patienteDashboard = '/patiente/dashboard';
+  static const String patienteDetailVideo = '/patiente/detail-video';
   static const String patienteEnregistrementGrossesse = '/patiente/enregistrement-grossesse';
+  static const String patienteDossierCpn = '/patiente/prenatale/dossier-cpn';
   static const String patienteTypeSuivi = '/patiente/type-suivi';
   static const String patienteProfile = '/patiente/profile';
-  static const String patienteSettings = '/patiente/settings';
+  // static const String patienteSettings = '/patiente/settings'; // Fichier supprimé
   static const String patienteNotifications = '/patiente/notifications';
   static const String patienteContent = '/patiente/content';
   static const String patienteContactForm = '/patiente/contact-form';
   static const String patientePersonnel = '/patiente/personnel';
-  static const String patientePersonnelProfile = '/patiente/personnel-profile';
-  static const String patienteFormulairePostnatal =
-      '/patiente/postnatale/formulaire_postnatale';
+  static const String patienteProfilPersonnel = '/patiente/profil-personnel';
+  static const String patienteDiscussion = '/patiente/discussion';
   static const String patienteDashboardPostnatal =
       '/patiente/postnatale/dashboard_postnatale';
+  static const String patienteEnregistrementAccouchement =
+      '/patiente/postnatale/enregistrement_accouchement';
+  static const String patienteDossierPost =
+      '/patiente/postnatale/dossier_post';
 
   // Routes sage-femme
   // À venir...
@@ -65,10 +76,12 @@ class AppRoutes {
   static const String proRegister = '/pro/register';
   static const String proDashboard = '/pro/dashboard';
   static const String gynecologueDashboard = '/gynecologue/dashboard';
-  static const String gynecologueAjoutSuivi = '/gynecologue/ajout-suivi';
   static const String proPatientes = '/pro/patientes';
-  static const String ajoutPrenatal = '/gynecologue/ajout-prenatal';
-  static const String ajoutPostnatal = '/gynecologue/ajout-postnatal';
+  static const String proAccompagnements = '/pro/accompagnements';
+  static const String proSettings = '/pro/settings';
+  static const String proAlertes = '/pro/alertes';
+  static const String proNotifications = '/pro/notifications';
+  static const String proProfile = '/pro/profile';
 
   // Méthode pour obtenir toutes les routes
   static Map<String, WidgetBuilder> getRoutes() {
@@ -83,14 +96,17 @@ class AppRoutes {
       // Routes patiente
       patienteDashboard: (context) => const PageTableauBord(),
       patienteEnregistrementGrossesse: (context) => const EnregistrementGrossessePage(),
+      patienteDossierCpn: (context) => const DossierCpnPage(),
       patienteTypeSuivi: (context) => const TypeSuiviPage(),
       patienteProfile: (context) => const PageProfil(),
-      patienteSettings: (context) => const PageParametres(),
-      patienteNotifications: (context) => const PageNotifications(),
+      // patienteSettings: (context) => const PageParametres(), // Fichier supprimé
+      patienteNotifications: (context) => const PageNotificationsPro(),
       patienteContent: (context) => const PageContenu(),
       patientePersonnel: (context) => const PersonnelPage(),
-      patienteFormulairePostnatal: (context) => const FormulairePostnatalePage(),
       patienteDashboardPostnatal: (context) => const DashboardPostnatalePage(),
+      patienteEnregistrementAccouchement: (context) => const EnregistrementAccouchementPage(),
+      patienteDossierPost: (context) => const DossierPostPage(),
+      patienteDiscussion: (context) => const PageDiscussion(),
       // Note: PageFormulaireContact et PageProfilPersonnel nécessitent des paramètres, seront gérés avec onGenerateRoute
 
       // Routes sage-femme
@@ -100,10 +116,15 @@ class AppRoutes {
       proLogin: (context) => const PageConnexionPro(),
       proRegister: (context) => const PageInscriptionPro(),
       proDashboard: (context) => const PageDashboardPro(),
-      gynecologueAjoutSuivi: (context) => const PageChoixAjoutSuivi(),
       proPatientes: (context) => const PagePatientes(),
-      ajoutPrenatal: (context) => const AjoutPrenatalPage(),
-      ajoutPostnatal: (context) => const AjoutPostnatalePage(),
+      proAccompagnements: (context) => const PageAccompagnement(),
+      proSettings: (context) {
+        final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return PageParametresPro(isPatiente: args?['isPatiente'] ?? false);
+      },
+      proAlertes: (context) => const PageAlertes(),
+      proNotifications: (context) => const PageNotificationsPro(),
+      proProfile: (context) => const PageProfilPro(),
     };
   }
 
@@ -111,27 +132,34 @@ class AppRoutes {
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     // Gérer les routes qui nécessitent des arguments
     switch (settings.name) {
-      case patientePersonnelProfile:
+      case patienteDetailVideo:
         final args = settings.arguments as Map<String, dynamic>?;
         if (args != null) {
           return MaterialPageRoute(
-            builder: (context) => PageProfilPersonnel(
-              name: args['name'] ?? '',
-              title: args['title'] ?? '',
-              location: args['location'] ?? '',
-              imageUrl: args['imageUrl'] ?? 'assets/images/default.png',
+            builder: (context) => PageDetailVideo(
+              title: args['title'] ?? 'Vidéo',
+              videoUrl: args['videoUrl'] ?? '',
+              contenu: args['contenu'],
             ),
           );
         }
         break;
-      
-      case patienteContactForm:
+      case patienteProfilPersonnel:
         final args = settings.arguments as Map<String, dynamic>?;
-        return MaterialPageRoute(
-          builder: (context) => PageFormulaireContact(
-            sageFemmeName: args?['sageFemmeName'] ?? 'Sage-femme',
-          ),
-        );
+        if (args != null && args.containsKey('professionnelId')) {
+          return MaterialPageRoute(
+            builder: (context) => PageProfilPersonnel(
+              professionnelId: args['professionnelId'] as int,
+            ),
+          );
+        }
+        return MaterialPageRoute(builder: (_) => const PageNotFound());
+
+      case patienteContactForm:
+        // PageFormulaireContact n'existe plus, rediriger vers PageNotFound
+        return MaterialPageRoute(builder: (_) => const PageNotFound());
+      default:
+        return MaterialPageRoute(builder: (_) => const PageNotFound());
     }
     return null;
   }

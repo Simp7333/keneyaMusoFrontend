@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../pages/common/app_colors.dart';
 
 class ProBottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -14,13 +13,16 @@ class ProBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFFF0F0),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+      height: 80,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFCAD4).withOpacity(0.21),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            spreadRadius: 2,
+            blurRadius: 10,
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -36,28 +38,30 @@ class ProBottomNavBar extends StatelessWidget {
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = selectedIndex == index;
+    final color = isSelected ? const Color(0xFFE91E63).withOpacity(0.63) : Colors.grey[600];
+
     return GestureDetector(
       onTap: () => onItemSelected(index),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.primaryPink.withOpacity(0.63) : Colors.transparent,
-              shape: BoxShape.circle,
+              color: isSelected ? const Color(0xFFFCE4EC) : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
               icon,
-              color: isSelected ? Colors.white : Colors.grey[600],
-              size: 26,
+              color: color,
+              size: 28,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              color: isSelected ? AppColors.primaryPink.withOpacity(0.63) : Colors.grey[600],
+              color: color,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               fontSize: 12,
             ),

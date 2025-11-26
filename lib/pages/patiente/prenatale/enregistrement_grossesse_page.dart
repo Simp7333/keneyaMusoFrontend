@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../routes.dart';
 import '../../../widgets/page_animation_mixin.dart';
+import '../../common/app_colors.dart';
+import '../../../services/grossesse_service.dart';
+import '../../../models/dto/grossesse_request.dart';
 
 class EnregistrementGrossessePage extends StatefulWidget {
   const EnregistrementGrossessePage({super.key});
@@ -13,6 +17,9 @@ class EnregistrementGrossessePage extends StatefulWidget {
 class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePage>
     with TickerProviderStateMixin, PageAnimationMixin {
   final _dateController = TextEditingController();
+  final GrossesseService _grossesseService = GrossesseService();
+  bool _isLoading = false;
+  DateTime? _selectedDate;
 
   @override
   void dispose() {
@@ -87,6 +94,8 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
                         // Date Input Field
                         TextField(
                           controller: _dateController,
+                          readOnly: true,
+                          onTap: _selectDate,
                           decoration: InputDecoration(
                             hintText: 'MM/JJ/AAAA',
                             hintStyle: TextStyle(color: Colors.grey.shade400),
@@ -105,7 +114,11 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(30),
                               borderSide:
-                                  BorderSide(color: Color(0xFFE91E63).withOpacity(0.63)),
+                                  BorderSide(color: AppColors.primaryPink.withOpacity(0.63)),
+                            ),
+                            suffixIcon: Icon(
+                              Icons.calendar_today,
+                              color: AppColors.primaryPink.withOpacity(0.63),
                             ),
                           ),
                         ),
@@ -117,14 +130,30 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton(
-                            onPressed: _handleRegister,
-                            child: const Text(
-                              'Enregistrer',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                            onPressed: _isLoading ? null : _handleRegister,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryPink.withOpacity(0.63),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
                               ),
                             ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Enregistrer',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -139,8 +168,37 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
     );
   }
 
-  void _handleRegister() {
-    if (_dateController.text.isEmpty) {
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 30)),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primaryPink.withOpacity(0.63),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text =
+            '${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}/${picked.year}';
+      });
+    }
+  }
+
+  Future<void> _handleRegister() async {
+    if (_dateController.text.isEmpty || _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez saisir une date'),
@@ -150,18 +208,82 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
       return;
     }
 
-    // Simulation d'enregistrement réussi
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Grossesse enregistrée avec succès !'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    setState(() => _isLoading = true);
 
-    // Navigation vers le dashboard
-    Navigator.pushReplacementNamed(
-      context,
-      AppRoutes.patienteDashboard,
-    );
+    try {
+      // Récupérer l'ID de la patiente depuis SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur: Utilisateur non identifié'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Formater la date au format YYYY-MM-DD
+      final formattedDate =
+          '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+
+      // Créer la requête
+      final request = GrossesseRequest(
+        dateDernieresMenstruations: formattedDate,
+        patienteId: userId,
+      );
+
+      // Appeler l'API
+      final response = await _grossesseService.createGrossesse(request);
+
+      if (!mounted) return;
+
+      if (response.success) {
+        // Sauvegarder l'ID de la grossesse si nécessaire
+        if (response.data != null && response.data['id'] != null) {
+          await prefs.setInt('current_grossesse_id', response.data['id']);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Grossesse enregistrée avec succès ! Les consultations prénatales ont été créées automatiquement.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Attendre un court délai pour s'assurer que les CPN sont bien créées côté backend
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Navigation vers le dashboard prénatal
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.patienteDashboard,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }

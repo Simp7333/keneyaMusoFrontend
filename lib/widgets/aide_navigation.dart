@@ -29,12 +29,12 @@ class AideNavigation {
         );
         break;
       case 3:
-        // Navigate to Settings
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.patienteSettings,
-          (route) => false,
-        );
+        // Navigate to Settings - Route supprimée
+        // Navigator.pushNamedAndRemoveUntil(
+        //   context,
+        //   AppRoutes.patienteSettings,
+        //   (route) => false,
+        // );
         break;
     }
   }

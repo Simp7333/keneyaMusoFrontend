@@ -42,14 +42,15 @@ class _PageAccueilState extends State<PageAccueil> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         RichText(
+                          textAlign: TextAlign.left,
                           text: TextSpan(
                             style: const TextStyle(
-                                fontSize: 28,
+                                fontSize: 24,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black),
                             children: [
                               TextSpan(
-                                text: 'Bienvenue sur\n',
+                                text: 'Bienvenue sur ',
                                 style: TextStyle(color: AppColors.primaryColor),
                               ),
                               TextSpan(
@@ -63,7 +64,7 @@ class _PageAccueilState extends State<PageAccueil> {
                         const Text(
                           'Votre compagnon pour un suivi santé maternelle et infantile simple et rassurant.',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 22,
                             color: Colors.grey,
                             height: 1.5,
                           ),
@@ -77,21 +78,21 @@ class _PageAccueilState extends State<PageAccueil> {
                     content: const Text(
                       'Accédez à vos suivis, conseils personnalisés et rappels médicaux à tout moment.',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 22,
                         color: Colors.grey,
                         height: 1.5,
                       ),
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.left,
                     ),
                   ),
                   _buildPageContent(
                     imagePath: 'assets/images/D3.jpg',
                     imageFlex: 1,
                     content: RichText(
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.left,
                       text: TextSpan(
                         style: const TextStyle(
-                            fontSize: 16, height: 1.5, color: Colors.grey),
+                            fontSize: 22, height: 1.5, color: Colors.grey),
                         children: [
                           const TextSpan(
                             text:
@@ -104,13 +105,12 @@ class _PageAccueilState extends State<PageAccueil> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const TextSpan(
-                            text: '.',
-                          ),
                         ],
                       ),
                     ),
+
                   ),
+
                 ],
               ),
             ),
@@ -176,6 +176,10 @@ class _PageAccueilState extends State<PageAccueil> {
                   );
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPink.withOpacity(0.63),
+                foregroundColor: Colors.white,
+              ),
               child: Text(
                 _currentPage < 2 ? 'Suivant' : 'Commencez',
                 style: const TextStyle(

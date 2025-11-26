@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:keneya_muso/models/patient.dart';
-import 'package:keneya_muso/routes.dart';
-import 'package:keneya_muso/widgets/patient_list_item.dart';
-import 'package:keneya_muso/widgets/pro_bottom_nav_bar.dart';
+import '../../models/dto/patiente_list_dto.dart';
+import '../../services/professionnel_sante_service.dart';
+import '../../pages/patiente/prenatale/dossier_cpn_page.dart';
+import '../../pages/patiente/postnatale/dossier_post_page.dart';
+import '../../routes.dart';
+import '../../widgets/pro_bottom_nav_bar.dart';
 import '../common/app_colors.dart';
 
 class PagePatientes extends StatefulWidget {
@@ -16,17 +18,87 @@ class _PagePatientesState extends State<PagePatientes> {
   int _selectedTabIndex = 0;
   int _bottomNavIndex = 1; // 'Patientes' is the second item
 
-  final List<Patient> _prenatalPatients = [
-    Patient(name: 'Nantenin Keita', age: '23 ans', phone: '90 11 05 65', imageUrl: 'assets/images/D1.jpg'),
-    Patient(name: 'Aissata Traoré', age: '28 ans', phone: '91 22 33 44', imageUrl: 'assets/images/D3.jpg'),
-    Patient(name: 'Sira Diarra', age: '22 ans', phone: '93 44 55 66', imageUrl: 'assets/images/D2.jpg'),
-  ];
+  final ProfessionnelSanteService _service = ProfessionnelSanteService();
+  List<PatienteListDto> _prenatalPatients = [];
+  List<PatienteListDto> _postnatalPatients = [];
+  List<PatienteListDto> _filteredPatients = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
 
-  final List<Patient> _postnatalPatients = [
-    Patient(name: 'Mariam Diarra', age: '31 ans', phone: '94 55 66 77', imageUrl: 'assets/images/D1.jpg'),
-    Patient(name: 'Oumou Sangaré', age: '29 ans', phone: '95 66 77 88', imageUrl: 'assets/images/D1.jpg'),
-    Patient(name: 'Fatoumata Coulibaly', age: '25 ans', phone: '92 33 44 55', imageUrl: 'assets/images/D1.jpg'),
-  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPatientes();
+    _searchController.addListener(_filterPatients);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPatientes() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    // Charger les patientes prénatales
+    final prenatalesResponse = await _service.getMedecinPatientes(typeSuivi: 'PRENATAL');
+    
+    // Charger les patientes postnatales
+    final postnatalesResponse = await _service.getMedecinPatientes(typeSuivi: 'POSTNATAL');
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        if (prenatalesResponse.success && prenatalesResponse.data != null) {
+          _prenatalPatients = prenatalesResponse.data!;
+        } else if (!prenatalesResponse.success) {
+          _errorMessage = prenatalesResponse.message;
+        }
+
+        if (postnatalesResponse.success && postnatalesResponse.data != null) {
+          _postnatalPatients = postnatalesResponse.data!;
+        } else if (!postnatalesResponse.success && _errorMessage == null) {
+          _errorMessage = postnatalesResponse.message;
+        }
+
+        _updateFilteredPatients();
+      });
+    }
+  }
+
+  void _updateFilteredPatients() {
+    final patientsToShow = _selectedTabIndex == 0 ? _prenatalPatients : _postnatalPatients;
+    final searchQuery = _searchController.text.toLowerCase().trim();
+
+    if (searchQuery.isEmpty) {
+      _filteredPatients = patientsToShow;
+    } else {
+      _filteredPatients = patientsToShow.where((patient) {
+        final fullName = patient.fullName.toLowerCase();
+        final phone = patient.telephone.toLowerCase();
+        return fullName.contains(searchQuery) || phone.contains(searchQuery);
+      }).toList();
+    }
+  }
+
+  void _filterPatients() {
+    setState(() {
+      _updateFilteredPatients();
+    });
+  }
+
+  void _onTabChanged(int index) {
+    setState(() {
+      _selectedTabIndex = index;
+      _updateFilteredPatients();
+    });
+  }
 
   void _onNavBarItemTapped(int index) {
     if (_bottomNavIndex == index) return;
@@ -39,65 +111,168 @@ class _PagePatientesState extends State<PagePatientes> {
         // Already on this page
         break;
       case 2:
-        // TODO: Create and navigate to Accompagnements page
+        Navigator.pushReplacementNamed(context, AppRoutes.proAccompagnements);
         break;
       case 3:
-        // TODO: Create and navigate to Pro Settings page
+        Navigator.pushReplacementNamed(context, AppRoutes.proSettings);
         break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final patientsToShow = _selectedTabIndex == 0 ? _prenatalPatients : _postnatalPatients;
-
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Patientes',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryPink.withOpacity(0.63),
-                      ),
-                    ),
-                    FloatingActionButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.gynecologueAjoutSuivi);
-                      },
-                      mini: true,
-                      child: const Icon(Icons.add, color: Colors.white),
-                    ),
-                  ],
+              Text(
+                'Patientes',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryPink.withOpacity(0.63),
                 ),
-                const SizedBox(height: 16),
-                _buildTabs(),
-                const SizedBox(height: 16),
-                _buildSearchBar(),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: patientsToShow.length,
-                    itemBuilder: (context, index) {
-                      return PatientListItem(patient: patientsToShow[index]);
-                    },
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              _buildTabs(),
+              const SizedBox(height: 16),
+              _buildSearchBar(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _errorMessage != null && _filteredPatients.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _errorMessage!,
+                                  style: const TextStyle(color: Colors.red),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: _loadPatientes,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Réessayer'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : _filteredPatients.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.people_outline,
+                                      size: 64,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _selectedTabIndex == 0
+                                          ? 'Aucune patiente prénatale'
+                                          : 'Aucune patiente postnatale',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : RefreshIndicator(
+                                onRefresh: _loadPatientes,
+                                child: ListView.builder(
+                                  itemCount: _filteredPatients.length,
+                                  itemBuilder: (context, index) {
+                                    final patiente = _filteredPatients[index];
+                                    Widget destinationPage;
+                                    switch (_selectedTabIndex) {
+                                      case 0:
+                                        // Prénatale - afficher le dossier CPN de la patiente sélectionnée
+                                        destinationPage = DossierCpnPage(patienteId: patiente.id);
+                                        break;
+                                      case 1:
+                                        // Postnatale - afficher le dossier Post de la patiente sélectionnée
+                                        destinationPage = DossierPostPage(patienteId: patiente.id);
+                                        break;
+                                      default:
+                                        destinationPage = DossierCpnPage(patienteId: patiente.id);
+                                    }
+                                    return _buildPatienteListItem(patiente, destinationPage);
+                                  },
+                                ),
+                              ),
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: ProBottomNavBar(
         selectedIndex: _bottomNavIndex,
         onItemSelected: _onNavBarItemTapped,
+      ),
+    );
+  }
+
+  Widget _buildPatienteListItem(PatienteListDto patiente, Widget destinationPage) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => destinationPage),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: const Color(0xFFEEDEE3),
+              child: Text(
+                patiente.prenom.isNotEmpty ? patiente.prenom[0].toUpperCase() : 'P',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE91E63),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    patiente.fullName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(patiente.age, style: const TextStyle(color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  Text(patiente.telephone, style: const TextStyle(color: Colors.black54)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black54),
+          ],
+        ),
       ),
     );
   }
@@ -119,7 +294,7 @@ class _PagePatientesState extends State<PagePatientes> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedTabIndex = 0),
+              onTap: () => _onTabChanged(0),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
@@ -140,7 +315,7 @@ class _PagePatientesState extends State<PagePatientes> {
           ),
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedTabIndex = 1),
+              onTap: () => _onTabChanged(1),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
@@ -166,8 +341,9 @@ class _PagePatientesState extends State<PagePatientes> {
 
   Widget _buildSearchBar() {
     return TextField(
+      controller: _searchController,
       decoration: InputDecoration(
-        hintText: 'Rechercher ici...',
+        hintText: 'Rechercher par nom ou téléphone...',
         prefixIcon: const Icon(Icons.search),
         filled: true,
         fillColor: Colors.grey[100],

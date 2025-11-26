@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.keneya_muso"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -25,7 +25,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -41,4 +41,19 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// Tâche pour copier l'APK au bon endroit pour Flutter
+afterEvaluate {
+    tasks.named("assembleDebug") {
+        doLast {
+            val apkFile = file("build/outputs/apk/debug/app-debug.apk")
+            val targetDir = file("../../build/app/outputs/flutter-apk")
+            if (apkFile.exists()) {
+                targetDir.mkdirs()
+                apkFile.copyTo(targetDir.resolve("app-debug.apk"), overwrite = true)
+                println("APK copié vers: ${targetDir.resolve("app-debug.apk")}")
+            }
+        }
+    }
 }

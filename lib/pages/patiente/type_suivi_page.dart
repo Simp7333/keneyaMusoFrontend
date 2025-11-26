@@ -14,6 +14,20 @@ class TypeSuiviPage extends StatefulWidget {
 class _TypeSuiviPageState extends State<TypeSuiviPage>
     with TickerProviderStateMixin, PageAnimationMixin {
   String? _selectedSuiviType;
+  String _prenom = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _prenom = prefs.getString('user_prenom') ?? 'Patiente';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,12 +78,12 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
                             style: TextStyle(fontSize: 22, color: Colors.grey)),
                         const SizedBox(height: 8),
                         Row(
-                          children: const [
-                            Text('Mariam',
-                                style: TextStyle(
+                          children: [
+                            Text(_prenom,
+                                style: const TextStyle(
                                     fontSize: 34, fontWeight: FontWeight.bold)),
-                            SizedBox(width: 8),
-                            Text('🎉', style: TextStyle(fontSize: 28)),
+                            const SizedBox(width: 8),
+                            const Text('🎉', style: TextStyle(fontSize: 28)),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -100,7 +114,15 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
                             onPressed: _selectedSuiviType != null
                                 ? _proceedToDashboard
                                 : null,
-                            child: const Text('Suivant'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryPink.withOpacity(0.63),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: const Text('Suivant', style: TextStyle(fontSize: 18)),
                           ),
                         ),
                       ],
@@ -125,22 +147,22 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primaryColor : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
+            color: Colors.grey[300]!,
+            width: 1,
           ),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? AppColors.primaryColor
+                  ? AppColors.primaryPink.withOpacity(0.3)
                   : Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 3),
+              spreadRadius: 4,
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -177,7 +199,7 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Type de suivi sélectionné: ${_selectedSuiviType == 'prenatal' ? 'Prénatal' : 'Postnatal'}'),
-          backgroundColor: AppColors.primaryColor,
+          backgroundColor: AppColors.primaryPink.withOpacity(0.63),
         ),
       );
       
@@ -189,10 +211,10 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
           AppRoutes.patienteEnregistrementGrossesse,
         );
       } else {
-        // Redirection vers le formulaire pour le suivi postnatal
+        // Redirection vers la page d'enregistrement de l'accouchement
         Navigator.pushReplacementNamed(
           context,
-          AppRoutes.patienteFormulairePostnatal,
+          AppRoutes.patienteEnregistrementAccouchement,
         );
       }
     }

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:keneya_muso/models/patient.dart';
-import 'package:keneya_muso/pages/gynecologue/page_dossier_patiente.dart';
 
 class PatientListItem extends StatelessWidget {
   final Patient patient;
-  const PatientListItem({super.key, required this.patient});
+  final Widget destinationPage;
+
+  const PatientListItem({
+    super.key,
+    required this.patient,
+    required this.destinationPage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +17,7 @@ class PatientListItem extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const PageDossierPatiente()),
+          MaterialPageRoute(builder: (context) => destinationPage),
         );
       },
       child: Container(
