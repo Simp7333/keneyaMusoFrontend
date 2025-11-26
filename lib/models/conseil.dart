@@ -68,13 +68,28 @@ class Conseil {
   String get type {
     if (lienMedia != null && lienMedia!.isNotEmpty) {
       final lien = lienMedia!.toLowerCase();
+      // Vérifier les extensions vidéo
       if (lien.endsWith('.mp4') || 
           lien.endsWith('.avi') || 
           lien.endsWith('.mkv') ||
+          lien.endsWith('.mov') ||
+          lien.endsWith('.wmv') ||
+          lien.endsWith('.flv') ||
+          lien.endsWith('.webm') ||
+          lien.endsWith('.m4v') ||
+          // Vérifier les URLs de plateformes vidéo
           lien.contains('youtube') ||
           lien.contains('youtu.be') ||
           lien.contains('vimeo') ||
-          lien.contains('dailymotion')) {
+          lien.contains('dailymotion') ||
+          lien.contains('video') ||
+          // Vérifier les chemins uploads qui sont des vidéos
+          (lien.startsWith('/uploads/') && (
+            lien.contains('.mp4') ||
+            lien.contains('.avi') ||
+            lien.contains('.mkv') ||
+            lien.contains('.mov')
+          ))) {
         return 'video';
       }
     }

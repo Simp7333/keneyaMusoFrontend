@@ -371,6 +371,7 @@ class _PageAccompagnementState extends State<PageAccompagnement> {
                         ? ContentType.video 
                         : ContentType.conseil,
                     content: conseil.contenu ?? 'Aucun contenu disponible',
+                    mediaUrl: conseil.lienMedia,
                   ),
                 ),
               );

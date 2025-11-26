@@ -1,8 +1,5 @@
-import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:dotted_border/dotted_border.dart';
 import '../common/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../models/dto/register_request.dart';
@@ -25,20 +22,6 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
   final AuthService _authService = AuthService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  bool _isUploadingImage = false;
-  File? _image;
-  String? _uploadedImageUrl;
-
-  final ImagePicker _picker = ImagePicker();
-
-  Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-    }
-  }
 
   @override
   void dispose() {
@@ -101,9 +84,7 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
                     _buildInputField(controller: _healthCenterController, hintText: 'Centre de santé'),
                     const SizedBox(height: 20),
                     _buildInputField(controller: _passwordController, hintText: 'Mot de passe', isPassword: true),
-                    const SizedBox(height: 24),
-                    _buildImagePicker(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -208,49 +189,6 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
     );
   }
 
-  Future<void> _uploadImage() async {
-    if (_image == null) return;
-
-    setState(() {
-      _isUploadingImage = true;
-    });
-
-    try {
-      final response = await _authService.uploadProfileImage(_image!);
-
-      if (mounted) {
-        setState(() {
-          _isUploadingImage = false;
-        });
-
-        if (response.success && response.data != null) {
-          setState(() {
-            _uploadedImageUrl = response.data!['fileUrl'];
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response.message ?? 'Erreur lors de l\'upload de la photo'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isUploadingImage = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'upload: $e'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-
   void _handleRegister() async {
     if (_nameController.text.isEmpty || 
         _phoneController.text.isEmpty || 
@@ -263,20 +201,6 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
         ),
       );
       return;
-    }
-
-    // Uploader la photo si elle est sélectionnée et pas encore uploadée
-    if (_image != null && _uploadedImageUrl == null) {
-      await _uploadImage();
-      if (_uploadedImageUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de l\'upload de la photo. Veuillez réessayer.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
     }
 
     setState(() => _isLoading = true);
@@ -333,124 +257,6 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  Widget _buildImagePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: _pickImage,
-          child: DottedBorder(
-            borderType: BorderType.RRect,
-            radius: const Radius.circular(12),
-            color: Colors.grey.shade400,
-            strokeWidth: 1,
-            dashPattern: const [6, 6],
-            child: Container(
-              width: double.infinity,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _image == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.upload_file, color: Colors.grey.shade400),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Deposez votre image de profil',
-                          style: TextStyle(color: Colors.grey.shade400),
-                        ),
-                      ],
-                    )
-                  : Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            _image!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: 100,
-                          ),
-                        ),
-                        if (_uploadedImageUrl == null && !_isUploadingImage)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.red.withOpacity(0.7),
-                                padding: const EdgeInsets.all(4),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _image = null;
-                                  _uploadedImageUrl = null;
-                                });
-                              },
-                            ),
-                          ),
-                        if (_isUploadingImage)
-                          Container(
-                            color: Colors.black.withOpacity(0.5),
-                            child: const Center(
-                              child: CircularProgressIndicator(color: Colors.white),
-                            ),
-                          ),
-                        if (_uploadedImageUrl != null)
-                          Positioned(
-                            bottom: 4,
-                            right: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.white, size: 16),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Uploadé',
-                                    style: TextStyle(color: Colors.white, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-          ),
-        ),
-        if (_image != null && _uploadedImageUrl == null && !_isUploadingImage)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _uploadImage,
-                icon: const Icon(Icons.cloud_upload, size: 18),
-                label: const Text('Uploader la photo'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
   }
 }
 

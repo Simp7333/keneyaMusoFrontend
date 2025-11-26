@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../pages/common/app_colors.dart';
+import '../../config/api_config.dart';
 
 // Enum simplifié pour les types de contenu : video ou conseil
 enum ContentType { video, conseil }
@@ -167,6 +168,15 @@ class _PageDetailAccompagnementState extends State<PageDetailAccompagnement> {
   }
 
   Widget _buildVideoSection() {
+    // Construire l'URL complète si c'est un chemin relatif
+    String? videoUrl = widget.mediaUrl;
+    if (videoUrl != null && videoUrl.isNotEmpty) {
+      if (videoUrl.startsWith('/uploads/') || videoUrl.startsWith('/api/')) {
+        // C'est un chemin relatif, ajouter le baseUrl
+        videoUrl = '${ApiConfig.baseUrl}$videoUrl';
+      }
+    }
+    
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(20),
@@ -178,18 +188,56 @@ class _PageDetailAccompagnementState extends State<PageDetailAccompagnement> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Placeholder for video thumbnail
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.purple.shade400],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            // Afficher l'URL de la vidéo si disponible
+            if (videoUrl != null && videoUrl.isNotEmpty)
+              Container(
+                width: double.infinity,
+                height: double.infinity,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.videocam,
+                      color: Colors.white,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Vidéo disponible',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      videoUrl.length > 50 
+                          ? '${videoUrl.substring(0, 50)}...' 
+                          : videoUrl,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade400, Colors.purple.shade400],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
               ),
-            ),
             IconButton(
               icon: Icon(
                 _isPlaying ? Icons.pause_circle_outline : Icons.play_circle_outline,
@@ -200,6 +248,16 @@ class _PageDetailAccompagnementState extends State<PageDetailAccompagnement> {
                 setState(() {
                   _isPlaying = !_isPlaying;
                 });
+                // TODO: Implémenter la lecture vidéo avec video_player ou autre package
+                if (videoUrl != null && videoUrl.isNotEmpty) {
+                  // Ouvrir la vidéo dans un lecteur
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Lecture de la vidéo: $videoUrl'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
               },
             ),
           ],
