@@ -1,45 +1,101 @@
-# Miscellaneous
-*.class
+# ------------------------------
+# GENERAL SYSTEM FILES
+# ------------------------------
 *.log
+*.class
 *.pyc
 *.swp
 .DS_Store
+Thumbs.db
+
+# ------------------------------
+# IDE / EDITOR DIRECTORIES
+# ------------------------------
+# VS Code
+.vscode/
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Atom
 .atom/
-.build/
-.buildlog/
+
+# ------------------------------
+# FLUTTER / DART
+# ------------------------------
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+/build/
+**/doc/api/
+
+# Flutter plugins
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Flutter generated directories
+**/flutter_assets/
+**/gen/
+
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json
+
+# ------------------------------
+# ANDROID
+# ------------------------------
+android/local.properties
+
+# Android build artifacts
+android/.gradle/
+android/.idea/
+android/app/build/
+android/build/
+**/intermediates/
+**/generated/
+**/outputs/
+**/tmp/
+
+# Ignore native libs (heavy files)
+*.so
+
+# Ignore APK, AAB, JAR, DEX files
+*.apk
+*.aab
+*.jar
+*.dex
+
+# ------------------------------
+# iOS / Xcode
+# ------------------------------
+ios/Flutter/.last_build_id
+ios/.symlinks/
+ios/Pods/
+ios/build/
+macos/Flutter/ephemeral/
+
+# Xcode specific
+**/DerivedData/
+*.xcworkspace
+*.xcuserstate
+*.xcuserdatad
+*.xcsettings
+
+# CocoaPods
+ios/Podfile.lock
+ios/Podfile
+ios/Pods/
+
+# ------------------------------
+# MISC
+# ------------------------------
+/coverage/
+buildlog/
 .history
 .svn/
 .swiftpm/
 migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
