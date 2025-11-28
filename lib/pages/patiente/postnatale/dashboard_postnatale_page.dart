@@ -24,6 +24,7 @@ class DashboardPostnatalePage extends StatefulWidget {
 
 class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
   int _selectedIndex = 0;
+  String _suiviType = 'postnatal';
   
   // Services
   final ConsultationService _consultationService = ConsultationService();
@@ -40,7 +41,21 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
   @override
   void initState() {
     super.initState();
+    _loadSuiviType();
     _loadDashboardData();
+  }
+
+  Future<void> _loadSuiviType() async {
+    final prefs = await SharedPreferences.getInstance();
+    final suiviType = prefs.getString('suiviType') ?? 'postnatal';
+    setState(() {
+      _suiviType = suiviType;
+    });
+    
+    // Si le type de suivi est prénatal, rediriger vers le dashboard prénatal
+    if (suiviType == 'prenatal' && mounted) {
+      Navigator.pushReplacementNamed(context, AppRoutes.patienteDashboard);
+    }
   }
 
   /// Charge toutes les données pour le dashboard postnatale
@@ -378,7 +393,7 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
                         if (_consultations.isNotEmpty || _vaccinations.isNotEmpty || _rappels.isNotEmpty)
                           _buildUpcomingEvents(),
                         
-                        const SizedBox(height: 200), // Space for floating buttons
+                        const SizedBox(height: 300), // Space for floating buttons
                       ],
                     ),
                   ),
@@ -396,10 +411,15 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
                 FloatingActionButton(
                   heroTag: "audio",
                   onPressed: () => print('Action Audio'), // TODO: Implémenter l'action audio
-                  backgroundColor: Colors.white,
+                  backgroundColor: const Color(0xFFE91E63).withOpacity(0.30), // Background 30%
                   elevation: 4,
-                  child: const Icon(Icons.volume_up, color: Colors.blueAccent, size: 28),
+                  child: Icon(
+                    Icons.volume_up,
+                    color: const Color(0xFFE91E63).withOpacity(0.63), // Icône 63%
+                    size: 28,
+                  ),
                 ),
+
                 const SizedBox(height: 16),
                 // Bouton Livre (au milieu)
                 FloatingActionButton(
@@ -407,9 +427,13 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
                   onPressed: () {
                     Navigator.pushNamed(context, AppRoutes.patienteDossierPost);
                   },
-                  backgroundColor: Colors.white,
+                  backgroundColor: const Color(0xFFE91E63).withOpacity(0.30), // Background 30%
                   elevation: 4,
-                  child: const Icon(Icons.book_outlined, color: Colors.purpleAccent, size: 28),
+                  child: const Icon(
+                    Icons.book_outlined,
+                    color: Color(0xFFE91E63), // Icône 100%
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 // Bouton Bébé

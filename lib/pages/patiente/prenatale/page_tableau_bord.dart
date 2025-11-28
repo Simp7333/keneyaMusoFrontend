@@ -5,6 +5,7 @@ import 'package:keneya_muso/widgets/pregnancy_status_banner.dart';
 import 'package:keneya_muso/widgets/task_card.dart';
 import 'package:keneya_muso/routes.dart';
 import 'package:keneya_muso/widgets/ajouter_rappel_modal.dart';
+import 'package:keneya_muso/widgets/confirmation_rappel_dialog.dart';
 import 'package:keneya_muso/pages/common/app_colors.dart';
 import 'package:keneya_muso/services/dashboard_service.dart';
 import 'package:keneya_muso/services/grossesse_service.dart';
@@ -23,6 +24,7 @@ class PageTableauBord extends StatefulWidget {
 
 class _PageTableauBordState extends State<PageTableauBord> {
   int _selectedIndex = 0;
+  String _suiviType = 'prenatal';
   final DashboardService _dashboardService = DashboardService();
   final GrossesseService _grossesseService = GrossesseService();
   final ConsultationService _consultationService = ConsultationService();
@@ -35,6 +37,7 @@ class _PageTableauBordState extends State<PageTableauBord> {
   @override
   void initState() {
     super.initState();
+    _loadSuiviType();
     // Charger les données immédiatement
     _loadData();
     // Recharger après un court délai pour s'assurer que les CPN créées automatiquement sont bien récupérées
@@ -44,6 +47,19 @@ class _PageTableauBordState extends State<PageTableauBord> {
         _loadData();
       }
     });
+  }
+
+  Future<void> _loadSuiviType() async {
+    final prefs = await SharedPreferences.getInstance();
+    final suiviType = prefs.getString('suiviType') ?? 'prenatal';
+    setState(() {
+      _suiviType = suiviType;
+    });
+    
+    // Si le type de suivi est postnatal, rediriger vers le dashboard postnatal
+    if (suiviType == 'postnatal' && mounted) {
+      Navigator.pushReplacementNamed(context, AppRoutes.patienteDashboardPostnatal);
+    }
   }
 
   Future<void> _loadData() async {
@@ -108,6 +124,11 @@ class _PageTableauBordState extends State<PageTableauBord> {
           _isLoading = false;
         });
       }
+
+      // Vérifier s'il y a des notifications CPN non lues à J-1 et afficher le dialogue
+      if (mounted) {
+        _checkAndShowConfirmationDialog();
+      }
     } catch (e) {
       print('❌ Erreur chargement dashboard: $e');
       if (mounted) {
@@ -115,6 +136,40 @@ class _PageTableauBordState extends State<PageTableauBord> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// Vérifie s'il y a des rappels CPN non lus et affiche le dialogue de confirmation
+  void _checkAndShowConfirmationDialog() {
+    // Chercher les rappels CPN non lus
+    final rappelsCPNNonLus = _rappels
+        .where((r) => r.isRappelCPN && r.isNonLue)
+        .toList();
+
+    if (rappelsCPNNonLus.isNotEmpty) {
+      // Afficher le dialogue pour le premier rappel CPN non lu
+      final premierRappel = rappelsCPNNonLus.first;
+      
+      // Attendre un peu pour que l'UI soit prête
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ConfirmationRappelDialog(
+              rappel: premierRappel,
+              onConfirmed: () {
+                // Recharger les données après confirmation
+                _loadData();
+              },
+              onReprogrammed: () {
+                // Recharger les données après reprogrammation
+                _loadData();
+              },
+            ),
+          );
+        }
+      });
     }
   }
 
@@ -419,7 +474,7 @@ class _PageTableauBordState extends State<PageTableauBord> {
                 ),
               );
             },
-            backgroundColor: AppColors.primaryPink.withOpacity(0.23),
+            backgroundColor: AppColors.primaryPink.withOpacity(0.1),
             child: const Icon(Icons.volume_up, color: Colors.white),
           ),
           const SizedBox(height: 8),
@@ -429,7 +484,7 @@ class _PageTableauBordState extends State<PageTableauBord> {
               // Navigation vers le dossier CPN
               Navigator.pushNamed(context, AppRoutes.patienteDossierCpn);
             },
-            backgroundColor: AppColors.primaryPink.withOpacity(0.23),
+            backgroundColor: AppColors.primaryPink.withOpacity(0.3),
             child: const Icon(Icons.book_outlined, color: Colors.white),
           ),
           const SizedBox(height: 8),

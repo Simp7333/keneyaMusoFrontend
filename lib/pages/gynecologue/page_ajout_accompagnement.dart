@@ -70,84 +70,151 @@ class _PageAjoutAccompagnementState extends State<PageAjoutAccompagnement> {
   }
 
   Future<void> _uploadVideo() async {
-    if (_selectedVideo == null) return;
+    if (_selectedVideo == null) {
+      print('DEBUG: _selectedVideo est null');
+      return;
+    }
 
+    print('DEBUG: Début de l\'upload de la vidéo: ${_selectedVideo!.path}');
     setState(() {
       _isUploadingVideo = true;
       _errorMessage = null;
     });
 
-    final response = await _service.uploadVideo(_selectedVideo!);
+    try {
+      final response = await _service.uploadVideo(_selectedVideo!);
+      print('DEBUG: Réponse upload - success: ${response.success}, message: ${response.message}');
+      if (response.data != null) {
+        print('DEBUG: Données reçues: ${response.data}');
+      }
 
-    if (mounted) {
-      setState(() {
-        _isUploadingVideo = false;
-      });
-
-      if (response.success && response.data != null) {
+      if (mounted) {
         setState(() {
-          _uploadedVideoUrl = response.data!['fileUrl'];
+          _isUploadingVideo = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Vidéo uploadée avec succès'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
+
+        if (response.success && response.data != null) {
+          final fileUrl = response.data!['fileUrl'] as String?;
+          print('DEBUG: fileUrl extrait: $fileUrl');
+          if (fileUrl != null && fileUrl.isNotEmpty) {
+            setState(() {
+              _uploadedVideoUrl = fileUrl;
+            });
+            print('DEBUG: URL de la vidéo stockée: $_uploadedVideoUrl');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Vidéo uploadée avec succès'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            print('DEBUG: ERREUR - fileUrl est null ou vide');
+            setState(() {
+              _errorMessage = 'Erreur: URL de la vidéo non reçue du serveur';
+            });
+          }
+        } else {
+          print('DEBUG: ERREUR - Upload échoué: ${response.message}');
+          setState(() {
+            _errorMessage = response.message ?? 'Erreur lors de l\'upload de la vidéo';
+          });
+        }
+      }
+    } catch (e, stackTrace) {
+      print('DEBUG: EXCEPTION lors de l\'upload: $e');
+      print('DEBUG: Stack trace: $stackTrace');
+      if (mounted) {
         setState(() {
-          _errorMessage = response.message ?? 'Erreur lors de l\'upload de la vidéo';
+          _isUploadingVideo = false;
+          _errorMessage = 'Erreur lors de l\'upload: ${e.toString()}';
         });
       }
     }
   }
 
   Future<void> _submitForm() async {
+    print('DEBUG: Début de la soumission du formulaire');
     if (!_formKey.currentState!.validate()) {
+      print('DEBUG: Validation du formulaire échouée');
       return;
     }
 
     // Validation spécifique pour les vidéos
     if (_contentType == 'Vidéo') {
+      print('DEBUG: Type de contenu: Vidéo');
+      print('DEBUG: _selectedVideo: ${_selectedVideo?.path}');
+      print('DEBUG: _uploadedVideoUrl: $_uploadedVideoUrl');
+      
       if (_selectedVideo == null && _uploadedVideoUrl == null) {
+        print('DEBUG: ERREUR - Aucune vidéo sélectionnée ou uploadée');
         setState(() {
           _errorMessage = 'Veuillez sélectionner et uploader une vidéo';
         });
         return;
       }
       if (_selectedVideo != null && _uploadedVideoUrl == null) {
+        print('DEBUG: ERREUR - Vidéo sélectionnée mais pas uploadée');
         setState(() {
           _errorMessage = 'Veuillez d\'abord uploader la vidéo avant de publier';
         });
         return;
       }
+      // Vérifier que l'URL de la vidéo est valide
+      if (_uploadedVideoUrl == null || _uploadedVideoUrl!.isEmpty) {
+        print('DEBUG: ERREUR - URL de la vidéo invalide');
+        setState(() {
+          _errorMessage = 'L\'URL de la vidéo est invalide. Veuillez réessayer l\'upload.';
+        });
+        return;
+      }
     }
+
+    print('DEBUG: Préparation des données pour la création du conseil');
+    print('DEBUG: titre: ${_titreController.text.trim()}');
+    print('DEBUG: categorie: ${_mapCategorieToBackend(_categorie)}');
+    print('DEBUG: cible: $_cible');
+    print('DEBUG: lienMedia: ${_contentType == 'Vidéo' ? _uploadedVideoUrl : null}');
 
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
     });
 
-    final response = await _service.createConseil(
-      titre: _titreController.text.trim(),
-      contenu: _contenuController.text.trim().isNotEmpty 
-          ? _contenuController.text.trim() 
-          : null,
-      lienMedia: _contentType == 'Vidéo' ? _uploadedVideoUrl : null,
-      categorie: _mapCategorieToBackend(_categorie),
-      cible: _cible,
-    );
+    try {
+      final response = await _service.createConseil(
+        titre: _titreController.text.trim(),
+        contenu: _contenuController.text.trim().isNotEmpty 
+            ? _contenuController.text.trim() 
+            : null,
+        lienMedia: _contentType == 'Vidéo' ? _uploadedVideoUrl : null,
+        categorie: _mapCategorieToBackend(_categorie),
+        cible: _cible,
+      );
 
-    if (mounted) {
-      setState(() {
-        _isSubmitting = false;
-      });
+      print('DEBUG: Réponse création conseil - success: ${response.success}, message: ${response.message}');
 
-      if (response.success) {
-        _showSuccessDialog();
-      } else {
+      if (mounted) {
         setState(() {
-          _errorMessage = response.message ?? 'Erreur lors de la création du conseil';
+          _isSubmitting = false;
+        });
+
+        if (response.success) {
+          print('DEBUG: Conseil créé avec succès');
+          _showSuccessDialog();
+        } else {
+          print('DEBUG: ERREUR - Échec de la création: ${response.message}');
+          setState(() {
+            _errorMessage = response.message ?? 'Erreur lors de la création du conseil';
+          });
+        }
+      }
+    } catch (e, stackTrace) {
+      print('DEBUG: EXCEPTION lors de la création: $e');
+      print('DEBUG: Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _errorMessage = 'Erreur lors de la publication: ${e.toString()}';
         });
       }
     }
