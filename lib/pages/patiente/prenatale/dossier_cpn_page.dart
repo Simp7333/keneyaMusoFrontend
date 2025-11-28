@@ -4,8 +4,10 @@ import '../../common/app_colors.dart';
 import '../../common/page_chat.dart';
 import '../../../services/dossier_medical_service.dart';
 import '../../../services/conversation_service.dart';
+import '../../../services/consultation_service.dart';
 import '../../../models/dossier_medical.dart';
 import '../../../models/patiente_detail.dart';
+import '../../../models/consultation_prenatale.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 
@@ -21,6 +23,7 @@ class DossierCpnPage extends StatefulWidget {
 class _DossierCpnPageState extends State<DossierCpnPage> {
   final DossierMedicalService _service = DossierMedicalService();
   final ConversationService _conversationService = ConversationService();
+  final ConsultationService _consultationService = ConsultationService();
   
   String _nomPrenom = 'Chargement...';
   String _age = '--';
@@ -39,6 +42,8 @@ class _DossierCpnPageState extends State<DossierCpnPage> {
     'CPN3': false,
     'CPN4': false,
   };
+  
+  List<ConsultationPrenatale> _consultations = [];
 
   @override
   void initState() {
@@ -106,12 +111,22 @@ class _DossierCpnPageState extends State<DossierCpnPage> {
             _taille = dernierCPN.taille != null ? '${dernierCPN.taille} m' : 'Non renseigné';
             _poids = dernierCPN.poids != null ? '${dernierCPN.poids} kg' : 'Non renseigné';
             _groupeSanguin = dernierCPN.groupeSanguin ?? 'Non renseigné';
-            
-            // Calculer le nombre de CPN réalisés
-            int nombreCPN = dossier.formulairesCPN!.length;
-            for (int i = 1; i <= min(nombreCPN, 4); i++) {
-              _cpnCheckboxes['CPN$i'] = true;
-            }
+          });
+        }
+      }
+
+      // Charger les consultations prénatales pour vérifier les CPN confirmées
+      final prefs = await SharedPreferences.getInstance();
+      final patienteId = prefs.getInt('user_id');
+      
+      if (patienteId != null) {
+        final consultationsResponse = await _consultationService.getConsultationsPrenatalesByPatiente(patienteId);
+        
+        if (consultationsResponse.success && consultationsResponse.data != null) {
+          setState(() {
+            _consultations = consultationsResponse.data!;
+            // Cocher automatiquement les CPN confirmées (statut REALISEE)
+            _updateCpnCheckboxesFromConsultations();
           });
         }
       }
@@ -124,6 +139,36 @@ class _DossierCpnPageState extends State<DossierCpnPage> {
         _isLoading = false;
         _errorMessage = 'Erreur lors du chargement: ${e.toString()}';
       });
+    }
+  }
+
+  /// Met à jour les cases à cocher CPN en fonction des consultations confirmées
+  void _updateCpnCheckboxesFromConsultations() {
+    // Réinitialiser toutes les cases
+    _cpnCheckboxes = {
+      'CPN1': false,
+      'CPN2': false,
+      'CPN3': false,
+      'CPN4': false,
+    };
+
+    // Parcourir les consultations et cocher celles qui sont confirmées (REALISEE)
+    final cpnRealisees = _consultations.where((c) => c.isRealisee).toList();
+    
+    // Trier par date prévue pour déterminer l'ordre (CPN1, CPN2, CPN3, CPN4)
+    cpnRealisees.sort((a, b) {
+      try {
+        final dateA = DateTime.parse(a.datePrevue);
+        final dateB = DateTime.parse(b.datePrevue);
+        return dateA.compareTo(dateB);
+      } catch (e) {
+        return 0;
+      }
+    });
+    
+    // Cocher les CPN réalisées dans l'ordre
+    for (int i = 0; i < min(cpnRealisees.length, 4); i++) {
+      _cpnCheckboxes['CPN${i + 1}'] = true;
     }
   }
 
@@ -170,6 +215,7 @@ class _DossierCpnPageState extends State<DossierCpnPage> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -25,16 +25,15 @@ class Conversation {
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
-    // Extraire les informations du médecin depuis le titre ou les participants si disponibles
-    String? medecinNom;
-    String? medecinPrenom;
-    int? medecinId;
-    String? medecinImageUrl;
+    // Extraire les informations du médecin depuis le JSON (backend envoie maintenant ces infos directement)
+    String? medecinNom = json['medecinNom'] as String?;
+    String? medecinPrenom = json['medecinPrenom'] as String?;
+    int? medecinId = json['medecinId'] as int?;
+    String? medecinImageUrl = json['medecinImageUrl'] as String?;
     
-    // Le titre est au format "Chat: Prenom Nom ↔ Dr. Prenom Nom"
-    // On peut extraire le nom du médecin depuis le titre
+    // Fallback : extraire depuis le titre si les infos ne sont pas dans le JSON
     final titre = json['titre'] as String? ?? '';
-    if (titre.contains('↔')) {
+    if (medecinNom == null && medecinPrenom == null && titre.contains('↔')) {
       final parts = titre.split('↔');
       if (parts.length > 1) {
         final medecinPart = parts[1].trim();
@@ -50,8 +49,8 @@ class Conversation {
       }
     }
 
-    // Si les participants sont disponibles dans la réponse (même si @JsonIgnore, parfois ils sont inclus)
-    if (json['participants'] != null) {
+    // Si les participants sont disponibles dans la réponse (pour compatibilité)
+    if (medecinId == null && json['participants'] != null) {
       final participants = json['participants'] as List<dynamic>?;
       if (participants != null) {
         for (var participant in participants) {
@@ -83,7 +82,7 @@ class Conversation {
           : null,
       medecinNom: medecinNom,
       medecinPrenom: medecinPrenom,
-      medecinImageUrl: medecinImageUrl ?? json['medecinImageUrl'] as String?,
+      medecinImageUrl: medecinImageUrl,
       medecinId: medecinId,
     );
   }

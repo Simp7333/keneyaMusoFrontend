@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/dto/api_response.dart';
@@ -204,6 +205,7 @@ class ConseilService {
       final token = prefs.getString('auth_token');
 
       if (token == null) {
+        print('DEBUG createConseil: Token d\'authentification manquant');
         return ApiResponse<Conseil>(
           success: false,
           message: 'Non authentifié. Veuillez vous connecter.',
@@ -211,6 +213,7 @@ class ConseilService {
       }
 
       final url = Uri.parse('${ApiConfig.baseUrl}/api/conseils');
+      print('DEBUG createConseil: URL: $url');
 
       final body = {
         'titre': titre,
@@ -225,34 +228,54 @@ class ConseilService {
         body['lienMedia'] = lienMedia;
       }
 
+      print('DEBUG createConseil: Body à envoyer: $body');
+      print('DEBUG createConseil: Body JSON: ${jsonEncode(body)}');
+
       final response = await http.post(
         url,
         headers: ApiConfig.headersWithAuth(token),
         body: jsonEncode(body),
       );
 
-      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+      print('DEBUG createConseil: Status code: ${response.statusCode}');
+      print('DEBUG createConseil: Response body: ${response.body}');
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        if (jsonResponse['data'] != null) {
-          final conseil = Conseil.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+      try {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+        if (response.statusCode == 201 || response.statusCode == 200) {
+          if (jsonResponse['data'] != null) {
+            final conseil = Conseil.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+            print('DEBUG createConseil: Conseil créé avec succès, ID: ${conseil.id}');
+            return ApiResponse<Conseil>(
+              success: true,
+              message: jsonResponse['message'] ?? 'Conseil créé avec succès',
+              data: conseil,
+            );
+          }
+          print('DEBUG createConseil: ERREUR - Pas de données dans la réponse');
           return ApiResponse<Conseil>(
-            success: true,
-            message: jsonResponse['message'] ?? 'Conseil créé avec succès',
-            data: conseil,
+            success: false,
+            message: 'Erreur lors de la création du conseil',
+          );
+        } else {
+          print('DEBUG createConseil: ERREUR - Status code: ${response.statusCode}');
+          return ApiResponse<Conseil>(
+            success: false,
+            message: jsonResponse['message'] ?? 'Erreur lors de la création du conseil (${response.statusCode})',
           );
         }
+      } catch (e) {
+        print('DEBUG createConseil: ERREUR lors du décodage JSON: $e');
+        print('DEBUG createConseil: Response body brut: ${response.body}');
         return ApiResponse<Conseil>(
           success: false,
-          message: 'Erreur lors de la création du conseil',
-        );
-      } else {
-        return ApiResponse<Conseil>(
-          success: false,
-          message: jsonResponse['message'] ?? 'Erreur lors de la création du conseil',
+          message: 'Erreur lors du décodage de la réponse: ${e.toString()}',
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('DEBUG createConseil: EXCEPTION: $e');
+      print('DEBUG createConseil: Stack trace: $stackTrace');
       return ApiResponse<Conseil>(
         success: false,
         message: 'Erreur de connexion au serveur: ${e.toString()}',
@@ -371,13 +394,48 @@ class ConseilService {
     }
   }
 
+  /// Détermine le contentType d'un fichier vidéo basé sur son extension
+  String _getVideoContentType(String filePath) {
+    final extension = filePath.toLowerCase().split('.').last;
+    switch (extension) {
+      case 'mp4':
+        return 'video/mp4';
+      case 'mpeg':
+      case 'mpg':
+        return 'video/mpeg';
+      case 'avi':
+        return 'video/x-msvideo';
+      case 'mov':
+        return 'video/quicktime';
+      case 'wmv':
+        return 'video/x-ms-wmv';
+      case 'flv':
+        return 'video/x-flv';
+      case 'webm':
+        return 'video/webm';
+      case 'mkv':
+        return 'video/x-matroska';
+      case 'm4v':
+        return 'video/x-m4v';
+      case '3gp':
+        return 'video/3gpp';
+      default:
+        return 'video/mp4'; // Par défaut
+    }
+  }
+
   /// Upload une vidéo et retourne l'URL du fichier
   Future<ApiResponse<Map<String, String>>> uploadVideo(File videoFile) async {
     try {
+      print('DEBUG uploadVideo: Début de l\'upload');
+      print('DEBUG uploadVideo: Chemin du fichier: ${videoFile.path}');
+      print('DEBUG uploadVideo: Fichier existe: ${await videoFile.exists()}');
+      
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
       if (token == null) {
+        print('DEBUG uploadVideo: Token d\'authentification manquant');
         return ApiResponse<Map<String, String>>(
           success: false,
           message: 'Non authentifié. Veuillez vous connecter.',
@@ -385,46 +443,79 @@ class ConseilService {
       }
 
       final url = Uri.parse('${ApiConfig.baseUrl}/api/conseils/upload/video');
+      print('DEBUG uploadVideo: URL: $url');
 
       var request = http.MultipartRequest('POST', url);
       request.headers.addAll({
         'Authorization': 'Bearer $token',
       });
+      print('DEBUG uploadVideo: Headers: ${request.headers}');
 
-      // Ajouter le fichier vidéo
+      // Déterminer le contentType basé sur l'extension
+      final contentType = _getVideoContentType(videoFile.path);
+      print('DEBUG uploadVideo: ContentType déterminé: $contentType');
+
+      // Ajouter le fichier vidéo avec le contentType explicite
       var multipartFile = await http.MultipartFile.fromPath(
         'file',
         videoFile.path,
+        contentType: MediaType.parse(contentType),
       );
+      print('DEBUG uploadVideo: Fichier multipart créé, taille: ${multipartFile.length}, contentType: ${multipartFile.contentType}');
       request.files.add(multipartFile);
 
+      print('DEBUG uploadVideo: Envoi de la requête...');
       final streamedResponse = await request.send();
+      print('DEBUG uploadVideo: Requête envoyée, status code: ${streamedResponse.statusCode}');
       final response = await http.Response.fromStream(streamedResponse);
-
-      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+      print('DEBUG uploadVideo: Réponse reçue, status code: ${response.statusCode}');
+      print('DEBUG uploadVideo: Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        if (jsonResponse['data'] != null) {
-          final data = jsonResponse['data'] as Map<String, dynamic>;
+        try {
+          final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+          if (jsonResponse['data'] != null) {
+            final data = jsonResponse['data'] as Map<String, dynamic>;
+            final fileUrl = data['fileUrl'] as String?;
+            if (fileUrl == null || fileUrl.isEmpty) {
+              return ApiResponse<Map<String, String>>(
+                success: false,
+                message: 'Erreur: URL de la vidéo non reçue du serveur',
+              );
+            }
+            return ApiResponse<Map<String, String>>(
+              success: true,
+              message: jsonResponse['message'] ?? 'Vidéo uploadée avec succès',
+              data: {
+                'fileName': data['fileName'] as String? ?? '',
+                'fileUrl': fileUrl,
+                'originalFileName': data['originalFileName'] as String? ?? '',
+              },
+            );
+          }
           return ApiResponse<Map<String, String>>(
-            success: true,
-            message: jsonResponse['message'] ?? 'Vidéo uploadée avec succès',
-            data: {
-              'fileName': data['fileName'] as String? ?? '',
-              'fileUrl': data['fileUrl'] as String? ?? '',
-              'originalFileName': data['originalFileName'] as String? ?? '',
-            },
+            success: false,
+            message: 'Erreur: Réponse invalide du serveur',
+          );
+        } catch (e) {
+          return ApiResponse<Map<String, String>>(
+            success: false,
+            message: 'Erreur lors du décodage de la réponse: ${e.toString()}',
           );
         }
-        return ApiResponse<Map<String, String>>(
-          success: false,
-          message: 'Erreur lors de l\'upload de la vidéo',
-        );
       } else {
-        return ApiResponse<Map<String, String>>(
-          success: false,
-          message: jsonResponse['message'] ?? 'Erreur lors de l\'upload de la vidéo',
-        );
+        try {
+          final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+          return ApiResponse<Map<String, String>>(
+            success: false,
+            message: jsonResponse['message'] ?? 'Erreur lors de l\'upload de la vidéo (${response.statusCode})',
+          );
+        } catch (e) {
+          return ApiResponse<Map<String, String>>(
+            success: false,
+            message: 'Erreur lors de l\'upload de la vidéo (${response.statusCode}): ${response.body}',
+          );
+        }
       }
     } catch (e) {
       return ApiResponse<Map<String, String>>(

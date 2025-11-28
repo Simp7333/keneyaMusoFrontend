@@ -5,6 +5,8 @@ import 'package:keneya_muso/routes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../widgets/page_animation_mixin.dart';
 import '../../services/auth_service.dart';
+import '../../services/grossesse_service.dart';
+import '../../services/enfant_service.dart';
 import '../../models/dto/login_request.dart';
 import '../../models/enums/role_utilisateur.dart';
 
@@ -20,6 +22,8 @@ class _PageConnexionState extends State<PageConnexion>
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
+  final GrossesseService _grossesseService = GrossesseService();
+  final EnfantService _enfantService = EnfantService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
@@ -257,22 +261,46 @@ class _PageConnexionState extends State<PageConnexion>
           ),
         );
 
-        // Vérifier si un type de suivi a déjà été sélectionné
+        // Sauvegarder les informations utilisateur
         final prefs = await SharedPreferences.getInstance();
-        final suiviType = prefs.getString('suiviType');
+        await prefs.setInt('user_id', response.data!.id);
+        await prefs.setString('user_prenom', response.data!.prenom);
 
-        if (suiviType != null) {
-          // L'utilisateur a déjà choisi un type de suivi
-          if (suiviType == 'prenatal') {
+        // Vérifier si un type de suivi a déjà été sélectionné dans SharedPreferences
+        String? suiviType = prefs.getString('suiviType');
+
+        // Si pas de type de suivi sauvegardé, déterminer automatiquement depuis le backend
+        if (suiviType == null) {
+          suiviType = await _determineSuiviType(response.data!.id);
+          
+          // Si un type a été déterminé, le sauvegarder
+          if (suiviType != null) {
+            await prefs.setString('suiviType', suiviType);
+          }
+        }
+
+        // Rediriger selon le type de suivi
+        if (suiviType == 'prenatal') {
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.patienteDashboard,
+          );
+        } else if (suiviType == 'postnatal') {
+          // Pour postnatal, vérifier si l'enregistrement de l'accouchement est fait
+          final dateAccouchement = prefs.getString('dateAccouchement');
+          if (dateAccouchement != null) {
+            // Enregistrement déjà fait, aller au dashboard
             Navigator.pushReplacementNamed(
               context,
-              AppRoutes.patienteDashboard,
+              AppRoutes.patienteDashboardPostnatal,
             );
           } else {
-            // Pour postnatal, vérifier si l'enregistrement de l'accouchement est fait
-            final dateAccouchement = prefs.getString('dateAccouchement');
-            if (dateAccouchement != null) {
-              // Enregistrement déjà fait, aller au dashboard
+            // Vérifier si des enfants existent déjà dans le backend
+            final enfantsResponse = await _enfantService.getEnfantsByPatiente(response.data!.id);
+            if (enfantsResponse.success && 
+                enfantsResponse.data != null && 
+                enfantsResponse.data!.isNotEmpty) {
+              // Des enfants existent, aller directement au dashboard postnatal
               Navigator.pushReplacementNamed(
                 context,
                 AppRoutes.patienteDashboardPostnatal,
@@ -286,7 +314,7 @@ class _PageConnexionState extends State<PageConnexion>
             }
           }
         } else {
-          // Première connexion, redirection vers la page de choix du type de suivi
+          // Aucun type de suivi déterminé, redirection vers la page de choix
           Navigator.pushReplacementNamed(
             context,
             AppRoutes.patienteTypeSuivi,
@@ -312,6 +340,32 @@ class _PageConnexionState extends State<PageConnexion>
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  /// Détermine automatiquement le type de suivi en vérifiant les données du backend
+  /// Retourne 'prenatal' si une grossesse active existe, 'postnatal' si des enfants existent, null sinon
+  Future<String?> _determineSuiviType(int patienteId) async {
+    try {
+      // Vérifier d'abord si une grossesse active existe (prénatal)
+      final grossesseResponse = await _grossesseService.getCurrentGrossesseByPatiente(patienteId);
+      if (grossesseResponse.success && grossesseResponse.data != null) {
+        return 'prenatal';
+      }
+
+      // Si pas de grossesse active, vérifier si des enfants existent (postnatal)
+      final enfantsResponse = await _enfantService.getEnfantsByPatiente(patienteId);
+      if (enfantsResponse.success && 
+          enfantsResponse.data != null && 
+          enfantsResponse.data!.isNotEmpty) {
+        return 'postnatal';
+      }
+
+      // Aucun type de suivi déterminé
+      return null;
+    } catch (e) {
+      print('❌ Erreur lors de la détermination du type de suivi: $e');
+      return null;
     }
   }
 }

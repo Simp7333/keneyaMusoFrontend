@@ -17,6 +17,8 @@ class _PageModifierProfilState extends State<PageModifierProfil> {
   File? _selectedImage;
   bool _isLoading = true;
   bool _isSaving = false;
+  String _nom = '';
+  String _prenom = '';
 
   @override
   void initState() {
@@ -39,9 +41,9 @@ class _PageModifierProfilState extends State<PageModifierProfil> {
     try {
       final profileData = await _profilService.getCurrentUserProfile();
       setState(() {
-        final nom = profileData['nom'] ?? '';
-        final prenom = profileData['prenom'] ?? '';
-        _nameController.text = '$nom $prenom'.trim();
+        _nom = profileData['nom'] ?? '';
+        _prenom = profileData['prenom'] ?? '';
+        _nameController.text = '$_prenom $_nom'.trim();
         _phoneController.text = profileData['telephone'] ?? '';
         _isLoading = false;
       });
@@ -58,6 +60,20 @@ class _PageModifierProfilState extends State<PageModifierProfil> {
         );
       }
     }
+  }
+  
+  String _getInitials() {
+    String initials = '';
+    if (_prenom.isNotEmpty) {
+      initials += _prenom[0].toUpperCase();
+    }
+    if (_nom.isNotEmpty) {
+      initials += _nom[0].toUpperCase();
+    }
+    if (initials.isEmpty) {
+      initials = 'U';
+    }
+    return initials;
   }
 
   Future<void> _pickImage() async {
@@ -175,47 +191,18 @@ class _PageModifierProfilState extends State<PageModifierProfil> {
                     child: Column(
                       children: [
                         const SizedBox(height: 20),
-                        // Profile Picture with Edit Icon
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 70,
-                              backgroundColor: const Color(0xFFF9E7D9),
-                              child: _selectedImage != null
-                                  ? ClipOval(
-                                      child: Image.file(
-                                        _selectedImage!,
-                                        width: 140,
-                                        height: 140,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    )
-                                  : const CircleAvatar(
-                                      radius: 70,
-                                      backgroundImage: AssetImage('assets/images/malmatou.jpg'),
-                                    ),
+                        // Profile Picture with Initials
+                        CircleAvatar(
+                          radius: 70,
+                          backgroundColor: const Color(0xFFE91E63).withOpacity(0.63),
+                          child: Text(
+                            _getInitials(),
+                            style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: GestureDetector(
-                                onTap: _pickImage,
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.edit,
-                                    color: Colors.black,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                         const SizedBox(height: 40),
                         // Name Field

@@ -309,6 +309,7 @@ class _PageAccompagnementState extends State<PageAccompagnement> {
 
   Widget _buildContentItem(Conseil conseil) {
     // Déterminer l'icône et la couleur selon le type
+    // Le type est déterminé automatiquement par le modèle Conseil
     final isVideo = conseil.type == 'video';
     final icon = isVideo ? Icons.videocam : Icons.article;
     final color = isVideo ? Colors.blue.shade400 : Colors.green.shade400;
@@ -371,6 +372,7 @@ class _PageAccompagnementState extends State<PageAccompagnement> {
                         ? ContentType.video 
                         : ContentType.conseil,
                     content: conseil.contenu ?? 'Aucun contenu disponible',
+                    mediaUrl: conseil.lienMedia,
                   ),
                 ),
               );
@@ -380,6 +382,31 @@ class _PageAccompagnementState extends State<PageAccompagnement> {
         ],
       ),
     );
+  }
+
+  // Vérifier si une URL est une vidéo
+  bool _isVideoUrl(String url) {
+    final lowerUrl = url.toLowerCase();
+    return lowerUrl.endsWith('.mp4') ||
+        lowerUrl.endsWith('.mpeg') ||
+        lowerUrl.endsWith('.mpg') ||
+        lowerUrl.endsWith('.avi') ||
+        lowerUrl.endsWith('.mov') ||
+        lowerUrl.endsWith('.wmv') ||
+        lowerUrl.endsWith('.flv') ||
+        lowerUrl.endsWith('.webm') ||
+        lowerUrl.endsWith('.mkv') ||
+        lowerUrl.endsWith('.m4v') ||
+        lowerUrl.endsWith('.3gp') ||
+        lowerUrl.contains('youtube') ||
+        lowerUrl.contains('youtu.be') ||
+        lowerUrl.contains('vimeo') ||
+        (lowerUrl.startsWith('/uploads/') && (
+          lowerUrl.contains('.mp4') ||
+          lowerUrl.contains('.mpeg') ||
+          lowerUrl.contains('.avi') ||
+          lowerUrl.contains('.mov')
+        ));
   }
 
   void _showDeleteConfirmation(Conseil conseil) {

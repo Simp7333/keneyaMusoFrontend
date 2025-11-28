@@ -1,9 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import '../../routes.dart';
 import '../common/app_colors.dart';
-import 'package:dotted_border/dotted_border.dart';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import '../../services/auth_service.dart';
 import '../../models/dto/register_request.dart';
 import '../../models/enums/role_utilisateur.dart';
@@ -22,16 +19,6 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
   final AuthService _authService = AuthService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  bool _isUploadingImage = false;
-  File? _image;
-  String? _uploadedImageUrl;
-  final picker = ImagePicker();
-
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   void dispose() {
@@ -39,16 +26,6 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  Future getImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    setState(() {
-      if (pickedFile != null) {
-        _image = File(pickedFile.path);
-      }
-    });
   }
 
   @override
@@ -120,11 +97,6 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
                       hintText: 'Mot de passe',
                       isPassword: true,
                     ),
-                    const SizedBox(height: 24),
-                    
-                    // Image Upload
-                    _buildImageUploadArea(),
-                    
                     const SizedBox(height: 32),
                     
                     // Register Button
@@ -214,175 +186,6 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
     );
   }
 
-  Widget _buildImageUploadArea() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: getImage,
-          child: DottedBorder(
-            color: Colors.grey.shade400,
-            strokeWidth: 2,
-            dashPattern: const [8, 4],
-            radius: const Radius.circular(20),
-            borderType: BorderType.RRect,
-            child: Container(
-              width: double.infinity,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: _image == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.file_upload_outlined,
-                          color: Colors.grey.shade500,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Déposez votre image de profil',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.file(
-                            _image!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: 100,
-                          ),
-                        ),
-                        if (_uploadedImageUrl == null && !_isUploadingImage)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.red.withOpacity(0.7),
-                                padding: const EdgeInsets.all(4),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _image = null;
-                                  _uploadedImageUrl = null;
-                                });
-                              },
-                            ),
-                          ),
-                        if (_isUploadingImage)
-                          Container(
-                            color: Colors.black.withOpacity(0.5),
-                            child: const Center(
-                              child: CircularProgressIndicator(color: Colors.white),
-                            ),
-                          ),
-                        if (_uploadedImageUrl != null)
-                          Positioned(
-                            bottom: 4,
-                            right: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.white, size: 16),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Uploadé',
-                                    style: TextStyle(color: Colors.white, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-          ),
-        ),
-        if (_image != null && _uploadedImageUrl == null && !_isUploadingImage)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _uploadImage,
-                icon: const Icon(Icons.cloud_upload, size: 18),
-                label: const Text('Uploader la photo'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _uploadImage() async {
-    if (_image == null) return;
-
-    setState(() {
-      _isUploadingImage = true;
-    });
-
-    try {
-      final response = await _authService.uploadProfileImage(_image!);
-
-      if (mounted) {
-        setState(() {
-          _isUploadingImage = false;
-        });
-
-        if (response.success && response.data != null) {
-          setState(() {
-            _uploadedImageUrl = response.data!['fileUrl'];
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response.message ?? 'Erreur lors de l\'upload de la photo'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isUploadingImage = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'upload: $e'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-
   void _handleRegister() async {
     if (_nameController.text.isEmpty || 
         _phoneController.text.isEmpty || 
@@ -394,20 +197,6 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
         ),
       );
       return;
-    }
-
-    // Uploader la photo si elle est sélectionnée et pas encore uploadée
-    if (_image != null && _uploadedImageUrl == null) {
-      await _uploadImage();
-      if (_uploadedImageUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de l\'upload de la photo. Veuillez réessayer.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
     }
 
     setState(() => _isLoading = true);

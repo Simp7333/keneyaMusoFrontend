@@ -257,13 +257,15 @@ class _PageContenuState extends State<PageContenu> {
           itemCount: conseils.length,
           itemBuilder: (context, index) {
             final conseil = conseils[index];
-            // Utiliser une image par défaut ou une image de placeholder
-            String imageUrl = 'assets/images/Contenu VIDEOS.png'; // Image par défaut
+            // Utiliser l'image selon le type de suivi
+            String imageUrl = _suiviType == 'prenatal' 
+                ? 'assets/images/D1.jpg' 
+                : 'assets/images/postnat.jpg';
             
             // Si c'est une vidéo avec un lien, on peut utiliser une miniature
             if (conseil.lienMedia != null && conseil.lienMedia!.isNotEmpty) {
               // Pour les vidéos YouTube, on pourrait extraire une miniature
-              // Pour l'instant, on utilise l'image par défaut
+              // Pour l'instant, on utilise l'image selon le type de suivi
             }
             
             // Formater la date
@@ -284,20 +286,37 @@ class _PageContenuState extends State<PageContenu> {
               }
             }
             
+            // Vérifier si c'est une vidéo avant de permettre la navigation
+            final isVideo = conseil.type == 'video';
+            final hasVideoUrl = conseil.lienMedia != null && conseil.lienMedia!.isNotEmpty;
+            
             return CarteVideo(
               title: conseil.titre,
               date: dateStr,
               imageUrl: imageUrl,
               onTap: () {
-                Navigator.pushNamed(
-                  context,
-                  AppRoutes.patienteDetailVideo,
-                  arguments: {
-                    'title': conseil.titre,
-                    'videoUrl': conseil.lienMedia ?? '',
-                    'contenu': conseil.contenu ?? '',
-                  },
-                );
+                // Si c'est une vidéo avec une URL, naviguer vers la page de détail vidéo
+                if (isVideo && hasVideoUrl) {
+                  Navigator.pushNamed(
+                    context,
+                    AppRoutes.patienteDetailVideo,
+                    arguments: {
+                      'title': conseil.titre,
+                      'videoUrl': conseil.lienMedia!,
+                      'contenu': conseil.contenu ?? '',
+                    },
+                  );
+                } else {
+                  // Sinon, afficher un message ou une page de détail texte
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(hasVideoUrl 
+                        ? 'Vidéo en cours de chargement...' 
+                        : 'Contenu texte disponible'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
               },
             );
           },

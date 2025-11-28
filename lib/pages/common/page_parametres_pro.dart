@@ -171,6 +171,18 @@ class _PageParametresProState extends State<PageParametresPro> {
     final fullName = '$prenom $nom'.trim();
     final roleString = _userProfile?['role'] ?? '';
     
+    // Générer les initiales
+    String initials = '';
+    if (prenom.isNotEmpty) {
+      initials += prenom[0].toUpperCase();
+    }
+    if (nom.isNotEmpty) {
+      initials += nom[0].toUpperCase();
+    }
+    if (initials.isEmpty) {
+      initials = 'U'; // User par défaut
+    }
+    
     String roleDisplay = '';
     try {
       final role = RoleUtilisateur.fromJson(roleString);
@@ -204,9 +216,17 @@ class _PageParametresProState extends State<PageParametresPro> {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 35,
-            backgroundImage: AssetImage('assets/images/Group 225.png'),
+            backgroundColor: const Color(0xFFE91E63).withOpacity(0.63),
+            child: Text(
+              initials,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(

@@ -28,6 +28,9 @@ class _PageProfilState extends State<PageProfil> {
     super.dispose();
   }
 
+  String _nom = '';
+  String _prenom = '';
+
   Future<void> _loadProfileData() async {
     setState(() {
       _isLoading = true;
@@ -36,11 +39,11 @@ class _PageProfilState extends State<PageProfil> {
     try {
       final profileData = await _profilService.getCurrentUserProfile();
       setState(() {
-        final nom = profileData['nom'] ?? '';
-        final prenom = profileData['prenom'] ?? '';
-        _nameController.text = '$nom $prenom'.trim().isEmpty 
+        _nom = profileData['nom'] ?? '';
+        _prenom = profileData['prenom'] ?? '';
+        _nameController.text = '$_prenom $_nom'.trim().isEmpty 
             ? 'Non renseigné' 
-            : '$nom $prenom'.trim();
+            : '$_prenom $_nom'.trim();
         _phoneController.text = profileData['telephone'] ?? 'Non renseigné';
         _isLoading = false;
       });
@@ -51,6 +54,20 @@ class _PageProfilState extends State<PageProfil> {
         _isLoading = false;
       });
     }
+  }
+  
+  String _getInitials() {
+    String initials = '';
+    if (_prenom.isNotEmpty) {
+      initials += _prenom[0].toUpperCase();
+    }
+    if (_nom.isNotEmpty) {
+      initials += _nom[0].toUpperCase();
+    }
+    if (initials.isEmpty) {
+      initials = 'U';
+    }
+    return initials;
   }
 
   @override
@@ -83,9 +100,17 @@ class _PageProfilState extends State<PageProfil> {
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 70,
-                      backgroundImage: AssetImage('assets/images/malmatou.jpg'),
+                      backgroundColor: const Color(0xFFE91E63).withOpacity(0.63),
+                      child: Text(
+                        _getInitials(),
+                        style: const TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
