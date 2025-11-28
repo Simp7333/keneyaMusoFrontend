@@ -6,6 +6,7 @@ import 'package:keneya_muso/widgets/task_card.dart';
 import 'package:keneya_muso/routes.dart';
 import 'package:keneya_muso/widgets/ajouter_rappel_modal.dart';
 import 'package:keneya_muso/widgets/confirmation_rappel_dialog.dart';
+import 'package:keneya_muso/widgets/confirmation_date_depassee_dialog.dart';
 import 'package:keneya_muso/pages/common/app_colors.dart';
 import 'package:keneya_muso/services/dashboard_service.dart';
 import 'package:keneya_muso/services/grossesse_service.dart';
@@ -128,6 +129,8 @@ class _PageTableauBordState extends State<PageTableauBord> {
       // Vérifier s'il y a des notifications CPN non lues à J-1 et afficher le dialogue
       if (mounted) {
         _checkAndShowConfirmationDialog();
+        // Vérifier les dates dépassées
+        _checkAndShowDateDepasseeDialog();
       }
     } catch (e) {
       print('❌ Erreur chargement dashboard: $e');
@@ -158,6 +161,50 @@ class _PageTableauBordState extends State<PageTableauBord> {
             barrierDismissible: false,
             builder: (context) => ConfirmationRappelDialog(
               rappel: premierRappel,
+              onConfirmed: () {
+                // Recharger les données après confirmation
+                _loadData();
+              },
+              onReprogrammed: () {
+                // Recharger les données après reprogrammation
+                _loadData();
+              },
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  /// Vérifie s'il y a des consultations avec dates dépassées et affiche le dialogue
+  void _checkAndShowDateDepasseeDialog() {
+    final maintenant = DateTime.now();
+    
+    // Chercher les CPN avec date dépassée et statut A_VENIR
+    final cpnDepassees = _consultations.where((cpn) {
+      if (!cpn.isAVenir) return false;
+      try {
+        final datePrevue = DateTime.parse(cpn.datePrevue);
+        // Vérifier si la date est dépassée (au moins 1 jour)
+        return datePrevue.isBefore(maintenant.subtract(const Duration(days: 1)));
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    if (cpnDepassees.isNotEmpty) {
+      // Afficher le dialogue pour la première CPN dépassée
+      final premiereCPN = cpnDepassees.first;
+      
+      // Attendre un peu pour que l'UI soit prête
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ConfirmationDateDepasseeDialog(
+              item: premiereCPN,
+              type: 'cpn',
               onConfirmed: () {
                 // Recharger les données après confirmation
                 _loadData();

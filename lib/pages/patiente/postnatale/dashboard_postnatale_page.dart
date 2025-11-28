@@ -4,6 +4,7 @@ import 'package:keneya_muso/widgets/bottom_nav_bar.dart';
 import 'package:keneya_muso/widgets/calendar_postnatale.dart';
 import 'package:keneya_muso/widgets/task_card.dart';
 import 'package:keneya_muso/widgets/confirmation_rappel_dialog.dart';
+import 'package:keneya_muso/widgets/confirmation_date_depassee_dialog.dart';
 import 'package:keneya_muso/widgets/creer_rappel_dialog.dart';
 import 'package:keneya_muso/routes.dart';
 import 'package:keneya_muso/widgets/suivi_options_panel.dart';
@@ -103,6 +104,8 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
       // Vérifier s'il y a des notifications CPON non lues à J-1 et afficher le dialogue
       if (mounted) {
         _checkAndShowConfirmationDialog();
+        // Vérifier les dates dépassées
+        _checkAndShowDateDepasseeDialog();
       }
     } catch (e) {
       print('❌ Erreur chargement dashboard: $e');
@@ -162,6 +165,80 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
               },
               onReprogrammed: () {
                 // Recharger les données après reprogrammation
+                _loadDashboardData();
+              },
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  /// Vérifie s'il y a des consultations ou vaccinations avec dates dépassées et affiche le dialogue
+  void _checkAndShowDateDepasseeDialog() {
+    final maintenant = DateTime.now();
+    
+    // Chercher les CPON avec date dépassée et statut A_VENIR
+    final cponDepassees = _consultations.where((cpon) {
+      if (!cpon.isAVenir) return false;
+      try {
+        final datePrevue = DateTime.parse(cpon.datePrevue);
+        // Vérifier si la date est dépassée (au moins 1 jour)
+        return datePrevue.isBefore(maintenant.subtract(const Duration(days: 1)));
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    // Chercher les vaccinations avec date dépassée et statut A_FAIRE
+    final vaccinationsDepassees = _vaccinations.where((vacc) {
+      if (!vacc.isAFaire) return false;
+      try {
+        final datePrevue = DateTime.parse(vacc.datePrevue);
+        // Vérifier si la date est dépassée (au moins 1 jour)
+        return datePrevue.isBefore(maintenant.subtract(const Duration(days: 1)));
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+
+    // Priorité : CPON d'abord, puis vaccinations
+    if (cponDepassees.isNotEmpty) {
+      final premiereCPON = cponDepassees.first;
+      
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ConfirmationDateDepasseeDialog(
+              item: premiereCPON,
+              type: 'cpon',
+              onConfirmed: () {
+                _loadDashboardData();
+              },
+              onReprogrammed: () {
+                _loadDashboardData();
+              },
+            ),
+          );
+        }
+      });
+    } else if (vaccinationsDepassees.isNotEmpty) {
+      final premiereVaccination = vaccinationsDepassees.first;
+      
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ConfirmationDateDepasseeDialog(
+              item: premiereVaccination,
+              type: 'vaccination',
+              onConfirmed: () {
+                _loadDashboardData();
+              },
+              onReprogrammed: () {
                 _loadDashboardData();
               },
             ),

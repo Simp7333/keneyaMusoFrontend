@@ -118,5 +118,132 @@ class VaccinationService {
       );
     }
   }
+
+  /// Confirme une vaccination (marque comme faite)
+  /// Prend la vaccination complète pour avoir tous les champs nécessaires
+  Future<ApiResponse<Vaccination>> confirmerVaccination(
+    Vaccination vaccination,
+    String dateRealisee,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        return ApiResponse<Vaccination>(
+          success: false,
+          message: 'Non authentifié. Veuillez vous connecter.',
+        );
+      }
+
+      final url = Uri.parse('${ApiConfig.baseUrl}/api/vaccinations/${vaccination.id}');
+
+      final body = jsonEncode({
+        'nomVaccin': vaccination.nomVaccin,
+        'datePrevue': vaccination.datePrevue,
+        'dateRealisee': dateRealisee,
+        'enfantId': vaccination.enfantId,
+        if (vaccination.notes != null) 'notes': vaccination.notes,
+      });
+
+      final response = await http.put(
+        url,
+        headers: ApiConfig.headersWithAuth(token),
+        body: body,
+      );
+
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (jsonResponse['data'] != null) {
+          final vaccination = Vaccination.fromJson(
+              jsonResponse['data'] as Map<String, dynamic>);
+
+          return ApiResponse<Vaccination>(
+            success: true,
+            message: jsonResponse['message'] ?? 'Vaccination confirmée',
+            data: vaccination,
+          );
+        }
+        return ApiResponse<Vaccination>(
+          success: true,
+          message: 'Vaccination confirmée',
+        );
+      } else {
+        return ApiResponse<Vaccination>(
+          success: false,
+          message: jsonResponse['message'] ?? 'Erreur lors de la confirmation',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Vaccination>(
+        success: false,
+        message: 'Erreur de connexion au serveur: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Reprogramme une vaccination
+  /// Prend la vaccination complète pour avoir tous les champs nécessaires
+  Future<ApiResponse<Vaccination>> reprogrammerVaccination(
+    Vaccination vaccination,
+    String nouvelleDatePrevue,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        return ApiResponse<Vaccination>(
+          success: false,
+          message: 'Non authentifié. Veuillez vous connecter.',
+        );
+      }
+
+      final url = Uri.parse('${ApiConfig.baseUrl}/api/vaccinations/${vaccination.id}');
+
+      final body = jsonEncode({
+        'nomVaccin': vaccination.nomVaccin,
+        'datePrevue': nouvelleDatePrevue,
+        'enfantId': vaccination.enfantId,
+        if (vaccination.notes != null) 'notes': vaccination.notes,
+      });
+
+      final response = await http.put(
+        url,
+        headers: ApiConfig.headersWithAuth(token),
+        body: body,
+      );
+
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (jsonResponse['data'] != null) {
+          final vaccination = Vaccination.fromJson(
+              jsonResponse['data'] as Map<String, dynamic>);
+
+          return ApiResponse<Vaccination>(
+            success: true,
+            message: jsonResponse['message'] ?? 'Vaccination reprogrammée',
+            data: vaccination,
+          );
+        }
+        return ApiResponse<Vaccination>(
+          success: true,
+          message: 'Vaccination reprogrammée',
+        );
+      } else {
+        return ApiResponse<Vaccination>(
+          success: false,
+          message: jsonResponse['message'] ?? 'Erreur lors de la reprogrammation',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<Vaccination>(
+        success: false,
+        message: 'Erreur de connexion au serveur: ${e.toString()}',
+      );
+    }
+  }
 }
 

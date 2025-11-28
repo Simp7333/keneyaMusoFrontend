@@ -40,7 +40,7 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
             child: Image.asset(
               'assets/images/register.png',
               width: double.infinity,
-              height: MediaQuery.of(context).size.height * 0.45,
+              height: MediaQuery.of(context).size.height * 0.7,
               fit: BoxFit.cover,
             ),
           ),
@@ -51,7 +51,7 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
             child: SingleChildScrollView(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16.0),
-                padding: const EdgeInsets.fromLTRB(32, 40, 32, 32),
+                padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: const BorderRadius.only(
