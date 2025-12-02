@@ -5,6 +5,7 @@ import '../../../widgets/page_animation_mixin.dart';
 import '../../common/app_colors.dart';
 import '../../../services/grossesse_service.dart';
 import '../../../models/dto/grossesse_request.dart';
+import '../../../utils/message_helper.dart';
 
 class EnregistrementGrossessePage extends StatefulWidget {
   const EnregistrementGrossessePage({super.key});
@@ -199,11 +200,10 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
 
   Future<void> _handleRegister() async {
     if (_dateController.text.isEmpty || _selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez saisir une date'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Veuillez saisir une date',
+        title: 'Champ requis',
       );
       return;
     }
@@ -217,11 +217,10 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
 
       if (userId == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur: Utilisateur non identifié'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showError(
+          context: context,
+          message: 'Utilisateur non identifié',
+          title: 'Erreur',
         );
         setState(() => _isLoading = false);
         return;
@@ -248,37 +247,31 @@ class _EnregistrementGrossessePageState extends State<EnregistrementGrossessePag
           await prefs.setInt('current_grossesse_id', response.data['id']);
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Grossesse enregistrée avec succès ! Les consultations prénatales ont été créées automatiquement.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-
-        // Attendre un court délai pour s'assurer que les CPN sont bien créées côté backend
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        // Navigation vers le dashboard prénatal
-        Navigator.pushReplacementNamed(
-          context,
-          AppRoutes.patienteDashboard,
+        await MessageHelper.showSuccess(
+          context: context,
+          message: 'Grossesse enregistrée avec succès ! Les consultations prénatales ont été créées automatiquement.',
+          title: 'Succès',
+          onPressed: () {
+            // Navigation vers le dashboard prénatal
+            Navigator.pushReplacementNamed(
+              context,
+              AppRoutes.patienteDashboard,
+            );
+          },
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Erreur: $e',
+        title: 'Erreur',
       );
     } finally {
       if (mounted) {

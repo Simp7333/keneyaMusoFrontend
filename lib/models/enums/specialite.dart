@@ -12,5 +12,17 @@ enum Specialite {
       orElse: () => Specialite.GYNECOLOGUE,
     );
   }
+
+  /// Retourne le nom formaté pour l'affichage
+  String get displayName {
+    switch (this) {
+      case Specialite.GYNECOLOGUE:
+        return 'Gynécologue';
+      case Specialite.PEDIATRE:
+        return 'Pédiatre';
+      case Specialite.GENERALISTE:
+        return 'Médecin Généraliste';
+    }
+  }
 }
 

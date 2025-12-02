@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../pages/common/app_colors.dart';
 import '../../config/api_config.dart';
+import '../../utils/message_helper.dart';
 
 // Enum simplifié pour les types de contenu : video ou conseil
 enum ContentType { video, conseil }
@@ -508,14 +509,13 @@ class _PageDetailAccompagnementState extends State<PageDetailAccompagnement> {
               child: const Text('Annuler'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop(); // Close dialog
                 Navigator.of(context).pop(); // Go back to previous page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Contenu supprimé avec succès'),
-                    backgroundColor: Colors.green,
-                  ),
+                await MessageHelper.showSuccess(
+                  context: context,
+                  message: 'Contenu supprimé avec succès',
+                  title: 'Succès',
                 );
               },
               child: Text(

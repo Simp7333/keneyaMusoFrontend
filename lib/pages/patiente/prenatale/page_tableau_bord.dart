@@ -3,8 +3,9 @@ import 'package:keneya_muso/widgets/bottom_nav_bar.dart';
 import 'package:keneya_muso/widgets/custom_calendar.dart';
 import 'package:keneya_muso/widgets/pregnancy_status_banner.dart';
 import 'package:keneya_muso/widgets/task_card.dart';
+import 'package:keneya_muso/widgets/prise_fer_card.dart';
 import 'package:keneya_muso/routes.dart';
-import 'package:keneya_muso/widgets/ajouter_rappel_modal.dart';
+import 'package:keneya_muso/widgets/creer_rappel_dialog.dart';
 import 'package:keneya_muso/widgets/confirmation_rappel_dialog.dart';
 import 'package:keneya_muso/widgets/confirmation_date_depassee_dialog.dart';
 import 'package:keneya_muso/pages/common/app_colors.dart';
@@ -15,6 +16,7 @@ import 'package:keneya_muso/models/rappel.dart';
 import 'package:keneya_muso/models/grossesse.dart';
 import 'package:keneya_muso/models/consultation_prenatale.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:keneya_muso/services/conseil_predefini_service.dart';
 
 class PageTableauBord extends StatefulWidget {
   const PageTableauBord({super.key});
@@ -244,11 +246,14 @@ class _PageTableauBordState extends State<PageTableauBord> {
   }
 
   void _showAjouterRappel(BuildContext context) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const AjouterRappelModal(),
+      builder: (context) => CreerRappelDialog(
+        onRappelCreated: () {
+          // Recharger les données après création du rappel
+          _loadData();
+        },
+      ),
     );
   }
 
@@ -304,6 +309,20 @@ class _PageTableauBordState extends State<PageTableauBord> {
       } catch (e) {
         print('❌ Erreur affichage rappel: $e');
       }
+    }
+    
+    // Ajouter les conseils prédéfinis prénatals (maximum 3 conseils)
+    final conseilsPrenatals = ConseilPredefiniService.getConseilsPrenatals();
+    for (var conseil in conseilsPrenatals.take(3)) {
+      eventCards.add(
+        TaskCard(
+          icon: conseil.icon,
+          iconColor: conseil.color,
+          title: conseil.titre,
+          subtitle: conseil.description,
+        ),
+      );
+      eventCards.add(const SizedBox(height: 16));
     }
     
     return Column(children: eventCards);
@@ -476,6 +495,10 @@ class _PageTableauBordState extends State<PageTableauBord> {
                     ),
                     const SizedBox(height: 24),
                     
+                    // Carte de suivi de prise de fer
+                    const PriseFerCard(),
+                    const SizedBox(height: 24),
+                    
                     // Titre "Tâches et rappels"
                     const Text(
                       'Tâches et rappels',
@@ -510,29 +533,40 @@ class _PageTableauBordState extends State<PageTableauBord> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FloatingActionButton(
-            heroTag: 'fab_volume',
-            onPressed: () {
-              // TODO: Implémenter la lecture vocale
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fonctionnalité de lecture vocale à venir'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-            backgroundColor: AppColors.primaryPink.withOpacity(0.1),
-            child: const Icon(Icons.volume_up, color: Colors.white),
+          Container(
+            width: 56,
+            height: 56,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withOpacity(0.25),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.volume_up,
+              color: AppColors.primaryColor,
+              size: 20,
+            ),
           ),
           const SizedBox(height: 8),
-          FloatingActionButton(
-            heroTag: 'fab_book',
-            onPressed: () {
+          GestureDetector(
+            onTap: () {
               // Navigation vers le dossier CPN
               Navigator.pushNamed(context, AppRoutes.patienteDossierCpn);
             },
-            backgroundColor: AppColors.primaryPink.withOpacity(0.3),
-            child: const Icon(Icons.book_outlined, color: Colors.white),
+            child: Container(
+              width: 56,
+              height: 56,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withOpacity(0.25),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.book_outlined,
+                color: AppColors.primaryColor,
+                size: 20,
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           FloatingActionButton(

@@ -20,7 +20,7 @@ class EnfantBrief {
       nom: json['nom'] as String? ?? '',
       prenom: json['prenom'] as String? ?? '',
       dateDeNaissance: json['dateDeNaissance'] as String? ?? '',
-      sexe: json['sexe'] as String? ?? 'MASCULIN',
+      sexe: json['sexe'] as String? ?? 'GARCON', // Accepte GARCON/FILLE du backend
     );
   }
 

@@ -37,6 +37,10 @@ class _PageChatState extends State<PageChat> {
   late AudioPlayer _player;
   bool _isPlaying = false;
   String? _currentlyPlayingPath;
+  // Map pour stocker la durée de chaque message audio
+  Map<String, Duration> _audioDurations = {};
+  // Map pour stocker le temps de lecture actuel de chaque message audio
+  Map<String, Duration> _audioPositions = {};
 
   final MessageService _messageService = MessageService();
   final ConversationService _conversationService = ConversationService();
@@ -51,6 +55,8 @@ class _PageChatState extends State<PageChat> {
   bool _isSending = false;
   bool _isRecording = false;
   String? _recordingPath;
+  Duration _recordingDuration = Duration.zero;
+  Timer? _recordingTimer;
   int? _currentUserId;
   String? _currentUserRole;
   String? _otherParticipantName;
@@ -68,18 +74,75 @@ class _PageChatState extends State<PageChat> {
   }
 
   void _setupAudioPlayerListeners() {
-    // Écouter la fin de la lecture audio
+    // Écouter la fin de la lecture audio et les changements de durée
     _player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        // L'audio a fini de jouer
+        // L'audio a fini de jouer - arrêter automatiquement
+        print('✅ Lecture audio terminée - arrêt automatique');
         if (mounted) {
           setState(() {
             _isPlaying = false;
             _currentlyPlayingPath = null;
           });
+          // Arrêter le player
+          _player.stop();
         }
       }
     });
+    
+    // Écouter les changements de durée pour chaque fichier
+    _player.durationStream.listen((duration) {
+      if (duration != null && _currentlyPlayingPath != null) {
+        if (mounted) {
+          setState(() {
+            _audioDurations[_currentlyPlayingPath!] = duration;
+          });
+          print('⏱️ Durée audio détectée pour ${_currentlyPlayingPath}: ${_formatDuration(duration)}');
+        }
+      }
+    });
+    
+    // Écouter la position actuelle de lecture pour l'affichage
+    _player.positionStream.listen((position) {
+      if (_currentlyPlayingPath != null && mounted) {
+        setState(() {
+          _audioPositions[_currentlyPlayingPath!] = position;
+        });
+      }
+    });
+  }
+  
+  /// Formate une durée en format mm:ss
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+  
+  /// Précharge la durée d'un fichier audio sans le jouer
+  Future<void> _preloadAudioDuration(String audioUrl) async {
+    if (_audioDurations.containsKey(audioUrl)) {
+      return; // Déjà chargé
+    }
+    
+    try {
+      // Créer un player temporaire pour obtenir la durée
+      final tempPlayer = AudioPlayer();
+      await tempPlayer.setUrl(audioUrl);
+      final duration = await tempPlayer.duration;
+      
+      if (duration != null && mounted) {
+        setState(() {
+          _audioDurations[audioUrl] = duration;
+        });
+        print('⏱️ Durée préchargée pour $audioUrl: ${_formatDuration(duration)}');
+      }
+      
+      await tempPlayer.dispose();
+    } catch (e) {
+      print('⚠️ Erreur lors du préchargement de la durée pour $audioUrl: $e');
+    }
   }
 
   void _onMessageTextChanged() {
@@ -132,9 +195,14 @@ class _PageChatState extends State<PageChat> {
       setState(() {
         _isLoading = false;
         if (response.success && response.data != null) {
-          _messages = response.data!;
+          // Trier les messages par timestamp (du plus ancien au plus récent)
+          final messages = response.data!;
+          messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          _messages = messages;
+          
           // Marquer les messages non lus comme lus
           _markMessagesAsRead();
+          
           // Scroller vers le bas (messages les plus récents) après un court délai
           // Avec reverse: true, 0.0 est en bas (messages les plus récents)
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -183,7 +251,19 @@ class _PageChatState extends State<PageChat> {
       if (response.success && response.data != null) {
         _messageController.clear();
         // Recharger les messages pour avoir la liste complète
-        _loadMessages();
+        await _loadMessages();
+        // Scroller vers le bas pour voir le nouveau message
+        if (mounted && _scrollController.hasClients) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                0.0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -197,6 +277,7 @@ class _PageChatState extends State<PageChat> {
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
     _player.dispose();
     _messageController.dispose();
     _scrollController.dispose();
@@ -206,55 +287,112 @@ class _PageChatState extends State<PageChat> {
 
   Future<void> _playAudio(String path) async {
     try {
+      print('🔊 Tentative de lecture audio - Path reçu: $path');
+      
       if (_isPlaying && _currentlyPlayingPath == path) {
         await _player.pause();
         setState(() {
           _isPlaying = false;
           _currentlyPlayingPath = null;
         });
-      } else {
-        if (_isPlaying) {
-          await _player.stop();
+        return;
+      }
+      
+      if (_isPlaying) {
+        await _player.stop();
+      }
+      
+      // Construire l'URL complète selon le format reçu
+      String audioUrl = path;
+      
+      // Si l'URL commence par http:// ou https://, c'est déjà une URL complète
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        audioUrl = path;
+        // Remplacer localhost par l'IP du baseUrl si nécessaire (pour émulateur Android)
+        if (audioUrl.contains('localhost') || audioUrl.contains('127.0.0.1')) {
+          final baseUrl = ApiConfig.baseUrl;
+          // Extraire juste le domaine/IP du baseUrl (sans le protocole)
+          final baseHost = baseUrl.replaceAll(RegExp(r'https?://'), '');
+          // Remplacer localhost par l'IP du baseUrl
+          audioUrl = audioUrl.replaceAll(RegExp(r'https?://(localhost|127\.0\.0\.1)'), baseUrl);
+          print('🔄 URL corrigée (localhost remplacé): $audioUrl');
         }
-        
-        // Construire l'URL complète si c'est un chemin relatif
-        String audioUrl = path;
-        if (path.startsWith('/api/') || path.startsWith('/uploads/')) {
-          // C'est un chemin relatif du backend, ajouter le baseUrl
-          audioUrl = '${ApiConfig.baseUrl}$path';
-          print('📻 Lecture audio depuis URL construite: $audioUrl');
-        } else if (!path.startsWith('http')) {
-          // C'est un fichier local
-          print('📻 Lecture audio depuis fichier local: $path');
+        print('📻 Lecture audio depuis URL complète: $audioUrl');
+      } 
+      // Si c'est un chemin relatif du backend
+      else if (path.startsWith('/api/') || path.startsWith('/uploads/')) {
+        audioUrl = '${ApiConfig.baseUrl}$path';
+        print('📻 Lecture audio - URL construite depuis chemin relatif: $audioUrl');
+      } 
+      // Si c'est un fichier local (chemin système)
+      else if (path.contains('/') && !path.startsWith('http')) {
+        print('📻 Lecture audio depuis fichier local: $path');
+        try {
           await _player.setFilePath(path);
           await _player.play();
           setState(() {
             _isPlaying = true;
             _currentlyPlayingPath = path;
           });
+          print('✅ Lecture audio locale démarrée');
           return;
-        } else {
-          print('📻 Lecture audio depuis URL complète: $audioUrl');
+        } catch (e) {
+          print('❌ Erreur lecture fichier local: $e');
+          throw e;
         }
-        
-        // Si c'est une URL HTTP ou construite
-        await _player.setUrl(audioUrl);
-        await _player.play();
-        setState(() {
-          _isPlaying = true;
-          _currentlyPlayingPath = path;
-        });
+      } 
+      else {
+        // Essayer de construire l'URL avec le baseUrl si rien ne correspond
+        audioUrl = '${ApiConfig.baseUrl}/api/messages/download/$path';
+        print('📻 Lecture audio - URL construite par défaut: $audioUrl');
       }
-    } catch (e) {
-      print('Erreur lors de la lecture audio: $e');
+      
+      // Lire depuis une URL HTTP
+      print('🔊 Démarrage lecture depuis URL: $audioUrl');
+      
+      // Charger l'URL pour obtenir la durée avant de jouer
+      await _player.setUrl(audioUrl);
+      
+      // Attendre que la durée soit disponible
+      Duration? duration;
+      try {
+        duration = await _player.duration;
+        if (duration != null) {
+          print('⏱️ Durée audio détectée: ${_formatDuration(duration)}');
+          if (mounted) {
+            setState(() {
+              _audioDurations[path] = duration!;
+            });
+          }
+        }
+      } catch (e) {
+        print('⚠️ Impossible de récupérer la durée: $e');
+      }
+      
+      // Jouer l'audio
+      await _player.play();
+      setState(() {
+        _isPlaying = true;
+        _currentlyPlayingPath = path;
+      });
+      print('✅ Lecture audio démarrée avec succès');
+      
+    } catch (e, stackTrace) {
+      print('❌ Erreur lors de la lecture audio: $e');
+      print('❌ Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors de la lecture: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
+      setState(() {
+        _isPlaying = false;
+        _currentlyPlayingPath = null;
+      });
     }
   }
 
@@ -364,7 +502,19 @@ class _PageChatState extends State<PageChat> {
       });
 
       if (response.success && response.data != null) {
-        _loadMessages();
+        await _loadMessages();
+        // Scroller vers le bas pour voir le nouveau message
+        if (mounted && _scrollController.hasClients) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                0.0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -378,88 +528,200 @@ class _PageChatState extends State<PageChat> {
 
   Future<void> _startRecording() async {
     try {
+      // Vérifier si un enregistrement est déjà en cours
+      if (_isRecording) {
+        print('⚠️ Un enregistrement est déjà en cours');
+        return;
+      }
+
       // Demander la permission
       final status = await Permission.microphone.request();
       if (!status.isGranted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Permission d\'accès au microphone refusée'),
+              content: Text('Permission d\'accès au microphone refusée. Veuillez l\'activer dans les paramètres.'),
               backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
             ),
           );
         }
+        print('❌ Permission microphone refusée');
         return;
       }
 
+      // Vérifier à nouveau avec le recorder
+      if (!await _audioRecorder.hasPermission()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Permission d\'accès au microphone refusée. Veuillez l\'activer dans les paramètres.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        print('❌ Permission microphone non disponible');
+        return;
+      }
+
+      // Préparer le fichier d'enregistrement
       final directory = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final path = '${directory.path}/audio_$timestamp.m4a';
 
-      if (await _audioRecorder.hasPermission()) {
-        await _audioRecorder.start(
-          const RecordConfig(
-            encoder: AudioEncoder.aacLc,
-            bitRate: 128000,
-            sampleRate: 44100,
-          ),
-          path: path,
-        );
+      print('🎙️ Démarrage de l\'enregistrement audio...');
+      print('📁 Chemin du fichier: $path');
+      print('⚙️ Configuration: AAC LC, 128kbps, 44.1kHz');
+      
+      // Démarrer l'enregistrement
+      await _audioRecorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 44100,
+        ),
+        path: path,
+      );
 
-        setState(() {
-          _isRecording = true;
-          _recordingPath = path;
-        });
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Permission d\'accès au microphone refusée'),
-              backgroundColor: Colors.red,
-            ),
-          );
+      print('✅ Enregistrement démarré avec succès! Parlez maintenant...');
+      
+      // Mettre à jour l'état
+      setState(() {
+        _isRecording = true;
+        _recordingPath = path;
+        _recordingDuration = Duration.zero;
+      });
+      
+      // Démarrer le timer pour suivre la durée d'enregistrement
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted && _isRecording) {
+          setState(() {
+            _recordingDuration = Duration(seconds: timer.tick);
+          });
+          // Logger toutes les 5 secondes
+          if (timer.tick % 5 == 0) {
+            print('⏱️ Enregistrement en cours: ${_formatDuration(_recordingDuration)}');
+          }
+        } else {
+          timer.cancel();
         }
-      }
-    } catch (e) {
+      });
+    } catch (e, stackTrace) {
+      print('❌ Erreur lors du démarrage de l\'enregistrement: $e');
+      print('❌ Stack trace: $stackTrace');
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors du démarrage de l\'enregistrement: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
+        
+        // Réinitialiser l'état en cas d'erreur
+        setState(() {
+          _isRecording = false;
+          _recordingPath = null;
+          _recordingDuration = Duration.zero;
+        });
+        
+        if (_recordingTimer != null) {
+          _recordingTimer!.cancel();
+          _recordingTimer = null;
+        }
       }
     }
   }
 
   Future<void> _stopRecording({bool send = true}) async {
-    try {
-      final path = await _audioRecorder.stop();
+    // Vérifier qu'un enregistrement est en cours
+    if (!_isRecording) {
+      print('⚠️ Aucun enregistrement en cours à arrêter');
+      return;
+    }
 
+    try {
+      print('🛑 Arrêt de l\'enregistrement... Durée totale: ${_formatDuration(_recordingDuration)}');
+      
+      // Arrêter l'enregistrement
+      final path = await _audioRecorder.stop();
+      
+      if (path == null) {
+        print('⚠️ Aucun fichier enregistré (enregistrement trop court ou erreur)');
+        if (mounted && send) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('L\'enregistrement est trop court. Veuillez réessayer.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        print('✅ Enregistrement arrêté. Fichier sauvegardé: $path');
+        try {
+          final file = File(path);
+          if (await file.exists()) {
+            final fileSize = await file.length();
+            print('📊 Taille du fichier: $fileSize bytes');
+          }
+        } catch (e) {
+          print('⚠️ Impossible de lire la taille du fichier: $e');
+        }
+        print('⏱️ Durée finale: ${_formatDuration(_recordingDuration)}');
+      }
+
+      // Arrêter le timer
+      if (_recordingTimer != null) {
+        _recordingTimer!.cancel();
+        _recordingTimer = null;
+      }
+      
+      // Réinitialiser l'état
       setState(() {
         _isRecording = false;
+        _recordingDuration = Duration.zero;
+        _recordingPath = null;
       });
 
+      // Gérer le fichier selon l'action
       if (path != null && send) {
+        print('📤 Envoi du message audio...');
         await _sendAudio(File(path));
       } else if (path != null) {
         // Supprimer le fichier si on n'envoie pas
+        print('🗑️ Suppression du fichier audio annulé...');
         try {
           await File(path).delete();
+          print('✅ Fichier supprimé avec succès');
         } catch (e) {
-          print('Erreur lors de la suppression du fichier: $e');
+          print('❌ Erreur lors de la suppression du fichier: $e');
         }
       }
-
-      setState(() {
-        _recordingPath = null;
-      });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Erreur lors de l\'arrêt de l\'enregistrement: $e');
+      print('❌ Stack trace: $stackTrace');
+      
+      // Nettoyer en cas d'erreur
+      if (_recordingTimer != null) {
+        _recordingTimer!.cancel();
+        _recordingTimer = null;
+      }
+      
       if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _recordingDuration = Duration.zero;
+          _recordingPath = null;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors de l\'arrêt de l\'enregistrement: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -484,7 +746,19 @@ class _PageChatState extends State<PageChat> {
       });
 
       if (response.success && response.data != null) {
-        _loadMessages();
+        await _loadMessages();
+        // Scroller vers le bas pour voir le nouveau message
+        if (mounted && _scrollController.hasClients) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                0.0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -528,10 +802,60 @@ class _PageChatState extends State<PageChat> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: _buildAppBar(context),
-      body: Column(
+    return PopScope(
+      canPop: !_isRecording, // Empêcher de quitter si enregistrement en cours
+      onPopInvoked: (didPop) async {
+        // Si un audio est en cours de lecture, l'arrêter
+        if (_isPlaying) {
+          await _player.stop();
+          if (mounted) {
+            setState(() {
+              _isPlaying = false;
+              _currentlyPlayingPath = null;
+            });
+          }
+        }
+
+        // Si un enregistrement est en cours, demander confirmation
+        if (!didPop && _isRecording) {
+          final shouldCancel = await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Enregistrement en cours'),
+                content: const Text(
+                  'Un enregistrement est en cours. Voulez-vous annuler l\'enregistrement et quitter ?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Continuer'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                    child: const Text('Annuler et quitter'),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (shouldCancel == true) {
+            // Annuler l'enregistrement et quitter
+            await _stopRecording(send: false);
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: _buildAppBar(context),
+        body: Column(
         children: [
           Expanded(
             child: _isLoading
@@ -569,14 +893,25 @@ class _PageChatState extends State<PageChat> {
                           itemBuilder: (context, index) {
                             final message = _messages[index];
                             final isMe = message.expediteurId == _currentUserId;
-                            final showDateSeparator = index == 0 ||
-                                _shouldShowDateSeparator(
-                                  _messages[index - 1].timestamp,
-                                  message.timestamp,
-                                );
+                            
+                            // Avec reverse: true, les messages sont affichés du plus récent (index 0, en bas) au plus ancien
+                            // Pour le regroupement par date, on compare avec le message suivant (index + 1) qui est plus ancien
+                            bool showDateSeparator = false;
+                            if (index == 0) {
+                              // Premier message affiché (le plus récent, en bas) - afficher le séparateur avant
+                              showDateSeparator = true;
+                            } else {
+                              // Comparer avec le message suivant dans la liste (plus ancien visuellement)
+                              final previousMessage = _messages[index - 1];
+                              showDateSeparator = _shouldShowDateSeparator(
+                                previousMessage.timestamp,
+                                message.timestamp,
+                              );
+                            }
 
                             return Column(
                               children: [
+                                // Afficher le séparateur AVANT le message (pour qu'il apparaisse au-dessus avec reverse)
                                 if (showDateSeparator)
                                   _buildDateSeparator(_formatDate(message.timestamp)),
                                 _buildMessageFromBackend(message, isMe),
@@ -588,6 +923,7 @@ class _PageChatState extends State<PageChat> {
           ),
           _buildMessageComposer(),
         ],
+      ),
       ),
     );
   }
@@ -631,11 +967,39 @@ class _PageChatState extends State<PageChat> {
         isMe: isMe,
       );
     } else if (message.isAudio && message.fileUrl != null) {
+      print('🎵 Construction message audio - fileUrl: ${message.fileUrl}');
+      // Si l'URL contient localhost, la remplacer par l'IP du serveur
+      String audioUrl = message.fileUrl!;
+      if (audioUrl.contains('localhost') || audioUrl.contains('127.0.0.1')) {
+        // Remplacer localhost par l'IP du baseUrl
+        final baseUrl = ApiConfig.baseUrl;
+        audioUrl = audioUrl.replaceAll(RegExp(r'https?://(localhost|127\.0\.0\.1)(:\d+)?'), baseUrl);
+        print('🔄 URL corrigée (localhost remplacé): $audioUrl');
+      }
+      
+      // Précharger la durée si elle n'est pas encore chargée
+      if (!_audioDurations.containsKey(audioUrl)) {
+        _preloadAudioDuration(audioUrl);
+      }
+      
+      // Récupérer la durée si elle existe déjà, sinon afficher '0:00'
+      final duration = _audioDurations[audioUrl];
+      final durationText = duration != null ? _formatDuration(duration) : '0:00';
+      
+      // Si on est en train de jouer ce message, afficher le temps actuel / durée totale
+      String displayDuration = durationText;
+      if (_isPlaying && _currentlyPlayingPath == audioUrl) {
+        final position = _audioPositions[audioUrl] ?? Duration.zero;
+        if (duration != null && duration > Duration.zero) {
+          displayDuration = '${_formatDuration(position)} / ${_formatDuration(duration)}';
+        }
+      }
+      
       return _buildAudioMessage(
-        '0:00', // Durée par défaut
+        displayDuration,
         _formatTime(message.timestamp),
         isMe: isMe,
-        audioPath: message.fileUrl!,
+        audioPath: audioUrl,
       );
     } else {
       // Message de type inconnu ou document
@@ -842,10 +1206,12 @@ class _PageChatState extends State<PageChat> {
     // Placeholder for audio wave form
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 250),
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Container(
+            constraints: const BoxConstraints(maxWidth: 240),
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: isMe ? AppColors.primaryPink.withOpacity(0.63) : Colors.grey[300],
           borderRadius: BorderRadius.only(
@@ -857,6 +1223,7 @@ class _PageChatState extends State<PageChat> {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (isMe) ...[
               const CircleAvatar(
@@ -875,20 +1242,23 @@ class _PageChatState extends State<PageChat> {
                 color: isMe ? Colors.white : Colors.black,
                 size: 24,
               ),
-              onPressed: () => _playAudio(audioPath),
+              onPressed: () {
+                print('🔘 Bouton play audio cliqué - audioPath: $audioPath');
+                _playAudio(audioPath);
+              },
             ),
-            const SizedBox(width: 4),
-            Flexible(
+            const SizedBox(width: 2),
+            Expanded(
               child: Stack(
-                clipBehavior: Clip.none,
+                clipBehavior: Clip.hardEdge,
                 alignment: Alignment.center,
                 children: [
                   _buildWaveform(isMe),
                   Positioned(
-                    left: 15,
+                    left: 12,
                     child: Container(
-                      width: 6,
-                      height: 6,
+                      width: 5,
+                      height: 5,
                       decoration: BoxDecoration(
                         color: isMe ? Colors.white : Colors.black,
                         shape: BoxShape.circle,
@@ -898,33 +1268,44 @@ class _PageChatState extends State<PageChat> {
                 ],
               ),
             ),
-            const SizedBox(width: 6),
-            Text(
-              duration,
-              style: TextStyle(
-                color: isMe ? Colors.white70 : Colors.black54,
-                fontSize: 11,
+            const SizedBox(width: 3),
+            Flexible(
+              flex: 0,
+              child: Text(
+                duration,
+                style: TextStyle(
+                  color: isMe ? Colors.white70 : Colors.black54,
+                  fontSize: 11,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
           ],
         ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildWaveform(bool isMe) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: List.generate(
-        25,
-        (index) => Container(
-          margin: const EdgeInsets.symmetric(horizontal: 0.5),
-          width: 2,
-          height: (index % 5 + 1) * 3.5,
-          decoration: BoxDecoration(
-            color: isMe ? Colors.white54 : Colors.grey[600],
-            borderRadius: BorderRadius.circular(2),
+    return SizedBox(
+      width: 80,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: List.generate(
+          20,
+          (index) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 0.4),
+            width: 1.5,
+            height: (index % 5 + 1) * 3.5,
+            decoration: BoxDecoration(
+              color: isMe ? Colors.white54 : Colors.grey[600],
+              borderRadius: BorderRadius.circular(1.5),
+            ),
           ),
         ),
       ),
@@ -971,16 +1352,19 @@ class _PageChatState extends State<PageChat> {
                 ),
                 child: _isRecording
                     ? Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.mic, color: Colors.red, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '🎤 Enregistrement en cours...',
+                              '🎤 ${_formatDuration(_recordingDuration)}',
                               style: TextStyle(
                                 color: Colors.red[700],
                                 fontWeight: FontWeight.w500,
+                                fontSize: 14,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],

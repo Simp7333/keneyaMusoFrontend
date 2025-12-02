@@ -4,6 +4,7 @@ import '../common/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../models/dto/register_request.dart';
 import '../../models/enums/role_utilisateur.dart';
+import '../../utils/message_helper.dart';
 
 class PageInscription extends StatefulWidget {
   const PageInscription({super.key});
@@ -190,11 +191,10 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
     if (_nameController.text.isEmpty || 
         _phoneController.text.isEmpty || 
         _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez remplir tous les champs'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Veuillez remplir tous les champs',
+        title: 'Champs requis',
       );
       return;
     }
@@ -222,33 +222,31 @@ class _PageInscriptionState extends State<PageInscription> with TickerProviderSt
       if (!mounted) return;
 
       if (response.success && response.data != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Inscription réussie ! Bienvenue ${response.data!.prenom}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Rediriger vers la page de choix du type de suivi (première fois uniquement)
-        Navigator.pushReplacementNamed(
-          context,
-          AppRoutes.patienteTypeSuivi,
+        await MessageHelper.showSuccess(
+          context: context,
+          message: 'Inscription réussie ! Bienvenue ${response.data!.prenom}',
+          title: 'Inscription réussie',
+          onPressed: () {
+            // Rediriger vers la page de choix du type de suivi (première fois uniquement)
+            Navigator.pushReplacementNamed(
+              context,
+              AppRoutes.patienteTypeSuivi,
+            );
+          },
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Erreur: $e',
+        title: 'Erreur',
       );
     } finally {
       if (mounted) {

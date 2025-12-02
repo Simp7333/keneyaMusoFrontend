@@ -103,5 +103,55 @@ class EnfantService {
       );
     }
   }
+
+  /// Met à jour les informations d'un enfant
+  Future<ApiResponse<EnfantBrief>> updateEnfant(int enfantId, EnfantRequest request) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      
+      if (token == null) {
+        return ApiResponse<EnfantBrief>(
+          success: false,
+          message: 'Non authentifié. Veuillez vous connecter.',
+        );
+      }
+
+      final url = Uri.parse('${ApiConfig.baseUrl}/api/enfants/$enfantId');
+      
+      final response = await http.put(
+        url,
+        headers: ApiConfig.headersWithAuth(token),
+        body: request.toJsonString(),
+      );
+
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (jsonResponse['data'] != null) {
+          final enfant = EnfantBrief.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+          return ApiResponse<EnfantBrief>(
+            success: true,
+            message: jsonResponse['message'] ?? 'Enfant mis à jour',
+            data: enfant,
+          );
+        }
+        return ApiResponse<EnfantBrief>(
+          success: false,
+          message: jsonResponse['message'] ?? 'Erreur lors de la mise à jour',
+        );
+      } else {
+        return ApiResponse<EnfantBrief>(
+          success: false,
+          message: jsonResponse['message'] ?? 'Erreur lors de la mise à jour de l\'enfant',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<EnfantBrief>(
+        success: false,
+        message: 'Erreur de connexion au serveur: ${e.toString()}',
+      );
+    }
+  }
 }
 

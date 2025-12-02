@@ -197,6 +197,59 @@ class DossierSubmissionService {
     }
   }
 
+  /// Récupère les soumissions de la patiente connectée
+  Future<ApiResponse<List<DossierSubmissionResponse>>> getMySubmissions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        return ApiResponse<List<DossierSubmissionResponse>>(
+          success: false,
+          message: 'Non authentifié. Veuillez vous connecter.',
+        );
+      }
+
+      final url = Uri.parse('${ApiConfig.baseUrl}/api/dossiers/submissions/patiente');
+
+      final response = await http.get(
+        url,
+        headers: ApiConfig.headersWithAuth(token),
+      );
+
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (jsonResponse['data'] != null) {
+          final List<dynamic> data = jsonResponse['data'] as List<dynamic>;
+          final submissions = data
+              .map((item) => DossierSubmissionResponse.fromJson(item as Map<String, dynamic>))
+              .toList();
+          return ApiResponse<List<DossierSubmissionResponse>>(
+            success: true,
+            message: jsonResponse['message'] ?? 'Soumissions récupérées avec succès',
+            data: submissions,
+          );
+        }
+        return ApiResponse<List<DossierSubmissionResponse>>(
+          success: true,
+          message: 'Aucune soumission',
+          data: [],
+        );
+      } else {
+        return ApiResponse<List<DossierSubmissionResponse>>(
+          success: false,
+          message: jsonResponse['message'] ?? 'Erreur lors de la récupération des soumissions',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<List<DossierSubmissionResponse>>(
+        success: false,
+        message: 'Erreur de connexion au serveur: ${e.toString()}',
+      );
+    }
+  }
+
   /// Soumet un dossier médical au médecin (CPN ou CPON)
   Future<ApiResponse<DossierSubmissionResponse>> submitDossier(DossierSubmissionRequest request) async {
     try {

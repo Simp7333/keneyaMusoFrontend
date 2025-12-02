@@ -4,6 +4,7 @@ import 'package:keneya_muso/pages/common/app_colors.dart';
 import 'package:keneya_muso/pages/common/page_chat.dart';
 import 'package:keneya_muso/services/conversation_service.dart';
 import 'package:keneya_muso/models/conversation.dart';
+import 'package:keneya_muso/utils/message_helper.dart';
 import 'package:intl/intl.dart';
 
 class PageDiscussion extends StatefulWidget {
@@ -38,11 +39,10 @@ class _PageDiscussionState extends State<PageDiscussion> {
           setState(() {
             _isLoading = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Erreur: ID utilisateur non trouvé'),
-              backgroundColor: Colors.red,
-            ),
+          await MessageHelper.showError(
+            context: context,
+            message: 'ID utilisateur non trouvé',
+            title: 'Erreur',
           );
         }
         return;
@@ -73,11 +73,10 @@ class _PageDiscussionState extends State<PageDiscussion> {
           });
 
           if (!allConversationsResponse.success && allConversationsResponse.message != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(allConversationsResponse.message!),
-                backgroundColor: Colors.orange,
-              ),
+            await MessageHelper.showWarning(
+              context: context,
+              message: allConversationsResponse.message!,
+              title: 'Attention',
             );
           }
         }
@@ -88,11 +87,10 @@ class _PageDiscussionState extends State<PageDiscussion> {
           _conversations = [];
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showError(
+          context: context,
+          message: 'Erreur: $e',
+          title: 'Erreur',
         );
       }
     }

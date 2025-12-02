@@ -23,6 +23,7 @@ import 'pages/patiente/page_profil_personnel.dart';
 import 'pages/patiente/postnatale/dashboard_postnatale_page.dart';
 import 'pages/patiente/postnatale/enregistrement_accouchement_page.dart';
 import 'pages/patiente/postnatale/dossier_post_page.dart';
+import 'pages/patiente/postnatale/enfants_page.dart';
 import 'pages/patiente/page_discussion.dart';
 
 // Pages sage-femme
@@ -67,6 +68,8 @@ class AppRoutes {
       '/patiente/postnatale/enregistrement_accouchement';
   static const String patienteDossierPost =
       '/patiente/postnatale/dossier_post';
+  static const String patienteEnfants =
+      '/patiente/postnatale/enfants';
 
   // Routes sage-femme
   // À venir...
@@ -106,6 +109,7 @@ class AppRoutes {
       patienteDashboardPostnatal: (context) => const DashboardPostnatalePage(),
       patienteEnregistrementAccouchement: (context) => const EnregistrementAccouchementPage(),
       patienteDossierPost: (context) => const DossierPostPage(),
+      patienteEnfants: (context) => const EnfantsPage(),
       patienteDiscussion: (context) => const PageDiscussion(),
       // Note: PageFormulaireContact et PageProfilPersonnel nécessitent des paramètres, seront gérés avec onGenerateRoute
 

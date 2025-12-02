@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../../pages/common/app_colors.dart';
 import '../../services/conseil_service.dart';
+import '../../utils/message_helper.dart';
 
 class PageAjoutAccompagnement extends StatefulWidget {
   const PageAjoutAccompagnement({super.key});
@@ -101,11 +102,10 @@ class _PageAjoutAccompagnementState extends State<PageAjoutAccompagnement> {
               _uploadedVideoUrl = fileUrl;
             });
             print('DEBUG: URL de la vidéo stockée: $_uploadedVideoUrl');
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Vidéo uploadée avec succès'),
-                backgroundColor: Colors.green,
-              ),
+            await MessageHelper.showSuccess(
+              context: context,
+              message: 'Vidéo uploadée avec succès',
+              title: 'Succès',
             );
           } else {
             print('DEBUG: ERREUR - fileUrl est null ou vide');

@@ -7,6 +7,7 @@ import 'package:keneya_muso/models/professionnel_sante.dart'; // Import du modè
 import '../../../services/dossier_submission_service.dart';
 import '../../../services/grossesse_service.dart';
 import '../../../models/dto/dossier_submission_request.dart';
+import '../../../utils/message_helper.dart';
 
 class PageProfilPersonnel extends StatefulWidget {
   final int professionnelId;
@@ -73,12 +74,10 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
           _isLoading = false;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_errorMessage!),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
+          await MessageHelper.showError(
+            context: context,
+            message: _errorMessage!,
+            title: 'Erreur',
           );
         }
       }
@@ -90,12 +89,10 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
         _errorMessage = 'Erreur: ${e.toString()}';
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur de connexion: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Erreur de connexion: ${e.toString()}',
+        title: 'Erreur',
       );
     }
   }
@@ -110,11 +107,10 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
     }
 
     if (_professionnel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur: Informations du professionnel non disponibles'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Informations du professionnel non disponibles',
+        title: 'Erreur',
       );
       return;
     }
@@ -128,11 +124,10 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
 
       if (userId == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur: Utilisateur non identifié'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showError(
+          context: context,
+          message: 'Utilisateur non identifié',
+          title: 'Erreur',
         );
         setState(() => _isSubmitting = false);
         return;
@@ -190,40 +185,33 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
       if (response.success) {
         print('✅ Soumission réussie');
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              submissionType == 'CPN'
-                  ? 'Votre dossier prénatal a été soumis avec succès ! Le médecin recevra une alerte.'
-                  : 'Votre dossier postnatal a été soumis avec succès ! Le médecin recevra une alerte.',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
-          ),
+        await MessageHelper.showSuccess(
+          context: context,
+          message: submissionType == 'CPN'
+              ? 'Votre dossier prénatal a été soumis avec succès ! Le médecin recevra une alerte.'
+              : 'Votre dossier postnatal a été soumis avec succès ! Le médecin recevra une alerte.',
+          title: 'Soumission réussie',
+          onPressed: () {
+            // Retourner à la page PersonnelPage
+            print('🔄 Retour vers PersonnelPage');
+            Navigator.pop(context);
+          },
         );
-        
-        // Retourner à la page PersonnelPage
-        print('🔄 Retour vers PersonnelPage');
-        Navigator.pop(context);
       } else {
         print('❌ Erreur de soumission: ${response.message}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Erreur lors de la soumission'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     } catch (e) {
       if (!mounted) return;
       print('💥 Exception lors de la soumission: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Erreur: ${e.toString()}',
+        title: 'Erreur',
       );
     } finally {
       if (mounted) {

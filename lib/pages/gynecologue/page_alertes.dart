@@ -38,7 +38,7 @@ class _PageAlertesState extends State<PageAlertes> {
           _alertes = response.data!;
           print('✅ ${_alertes.length} alerte(s) chargée(s)');
           for (var alerte in _alertes) {
-            print('  - ${alerte.titre} (${alerte.type}) - ${alerte.nomComplet}');
+            print('  - ${alerte.titre} - ${alerte.nomComplet}');
           }
         } else {
           _errorMessage = response.message ?? 'Erreur lors du chargement des alertes';

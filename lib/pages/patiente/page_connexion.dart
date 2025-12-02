@@ -9,6 +9,7 @@ import '../../services/grossesse_service.dart';
 import '../../services/enfant_service.dart';
 import '../../models/dto/login_request.dart';
 import '../../models/enums/role_utilisateur.dart';
+import '../../utils/message_helper.dart';
 
 class PageConnexion extends StatefulWidget {
   const PageConnexion({super.key});
@@ -219,11 +220,10 @@ class _PageConnexionState extends State<PageConnexion>
 
   void _handleLogin() async {
     if (_phoneController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez remplir tous les champs'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Veuillez remplir tous les champs',
+        title: 'Champs requis',
       );
       return;
     }
@@ -244,21 +244,19 @@ class _PageConnexionState extends State<PageConnexion>
       if (response.success && response.data != null) {
         // Vérifier que c'est bien une patiente
         if (response.data!.role != RoleUtilisateur.PATIENTE) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ce compte n\'est pas un compte patiente'),
-              backgroundColor: Colors.red,
-            ),
+          await MessageHelper.showError(
+            context: context,
+            message: 'Ce compte n\'est pas un compte patiente',
+            title: 'Erreur',
           );
           setState(() => _isLoading = false);
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Connexion réussie ! Bienvenue ${response.data!.prenom}'),
-            backgroundColor: Colors.green,
-          ),
+        await MessageHelper.showSuccess(
+          context: context,
+          message: 'Connexion réussie ! Bienvenue ${response.data!.prenom}',
+          title: 'Connexion réussie',
         );
 
         // Sauvegarder les informations utilisateur
@@ -321,20 +319,18 @@ class _PageConnexionState extends State<PageConnexion>
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur de connexion',
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Erreur: $e',
+        title: 'Erreur',
       );
     } finally {
       if (mounted) {

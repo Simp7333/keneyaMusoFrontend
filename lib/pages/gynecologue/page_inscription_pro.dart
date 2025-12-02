@@ -6,6 +6,7 @@ import '../../models/dto/register_request.dart';
 import '../../models/enums/role_utilisateur.dart';
 import '../../models/enums/specialite.dart';
 import '../../routes.dart';
+import '../../utils/message_helper.dart';
 
 class PageInscriptionPro extends StatefulWidget {
   const PageInscriptionPro({super.key});
@@ -22,6 +23,7 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
   final AuthService _authService = AuthService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  Specialite? _selectedSpecialite;
 
   @override
   void dispose() {
@@ -80,6 +82,8 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
                     _buildInputField(controller: _nameController, hintText: 'Nom et Prénom'),
                     const SizedBox(height: 20),
                     _buildInputField(controller: _phoneController, hintText: 'Numéro Téléphone', keyboardType: TextInputType.phone),
+                    const SizedBox(height: 20),
+                    _buildSpecialiteDropdown(),
                     const SizedBox(height: 20),
                     _buildInputField(controller: _healthCenterController, hintText: 'Centre de santé'),
                     const SizedBox(height: 20),
@@ -189,16 +193,50 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
     );
   }
 
+  Widget _buildSpecialiteDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: DropdownButtonFormField<Specialite>(
+        value: _selectedSpecialite,
+        decoration: InputDecoration(
+          hintText: 'Sélectionner une spécialité',
+          hintStyle: TextStyle(color: Colors.grey.shade400),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.primaryColor),
+          ),
+        ),
+        items: Specialite.values.map((specialite) {
+          return DropdownMenuItem<Specialite>(
+            value: specialite,
+            child: Text(specialite.displayName),
+          );
+        }).toList(),
+        onChanged: (Specialite? value) {
+          setState(() {
+            _selectedSpecialite = value;
+          });
+        },
+      ),
+    );
+  }
+
   void _handleRegister() async {
     if (_nameController.text.isEmpty || 
         _phoneController.text.isEmpty || 
         _healthCenterController.text.isEmpty ||
-        _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez remplir tous les champs'),
-          backgroundColor: Colors.red,
-        ),
+        _passwordController.text.isEmpty ||
+        _selectedSpecialite == null) {
+      await MessageHelper.showError(
+        context: context,
+        message: 'Veuillez remplir tous les champs, y compris la spécialité',
+        title: 'Champs requis',
       );
       return;
     }
@@ -218,7 +256,7 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
         telephone: _phoneController.text.trim(),
         motDePasse: _passwordController.text,
         role: RoleUtilisateur.MEDECIN,
-        specialite: Specialite.GYNECOLOGUE, // Par défaut gynécologue
+        specialite: _selectedSpecialite!, // Spécialité sélectionnée
         identifiantProfessionnel: _healthCenterController.text.trim(),
       );
 
@@ -227,30 +265,28 @@ class _PageInscriptionProState extends State<PageInscriptionPro> {
       if (!mounted) return;
 
       if (response.success && response.data != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Inscription réussie ! Bienvenue Dr. ${response.data!.nom}'),
-            backgroundColor: Colors.green,
-          ),
+        await MessageHelper.showSuccess(
+          context: context,
+          message: 'Inscription réussie ! Bienvenue Dr. ${response.data!.nom}',
+          title: 'Inscription réussie',
+          onPressed: () {
+            // Redirection vers le dashboard professionnel
+            Navigator.pushReplacementNamed(context, AppRoutes.proDashboard);
+          },
         );
-
-        // Redirection vers le dashboard professionnel
-        Navigator.pushReplacementNamed(context, AppRoutes.proDashboard);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Erreur: $e',
+        title: 'Erreur',
       );
     } finally {
       if (mounted) {

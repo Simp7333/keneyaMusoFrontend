@@ -5,6 +5,8 @@ import 'package:keneya_muso/services/notification_service.dart';
 import 'package:keneya_muso/services/message_service.dart';
 import 'package:keneya_muso/models/rappel.dart';
 import 'package:keneya_muso/models/message.dart';
+import 'package:keneya_muso/models/enums/role_utilisateur.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
 // Enum for notification type
@@ -46,11 +48,23 @@ class _PageNotificationsProState extends State<PageNotificationsPro> {
   List<Rappel> _rappels = [];
   List<Message> _messagesNonLus = [];
   bool _isLoading = true;
+  RoleUtilisateur? _userRole;
 
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
     _loadNotifications();
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final roleString = prefs.getString('user_role');
+    if (roleString != null) {
+      setState(() {
+        _userRole = RoleUtilisateur.fromJson(roleString);
+      });
+    }
   }
 
   Future<void> _loadNotifications() async {
@@ -91,10 +105,23 @@ class _PageNotificationsProState extends State<PageNotificationsPro> {
 
   // Convertir Rappel en NotificationItem
   NotificationItem _rappelToNotificationItem(Rappel rappel) {
-    // Déterminer le type de notification
-    NotificationType type = NotificationType.demande;
-    if (rappel.type.contains('ALERTE') || rappel.priorite == 'ELEVEE') {
+    // Déterminer le type de notification selon le rôle et le type de rappel
+    NotificationType type;
+    
+    // Pour les médecins : vérifier si c'est une demande d'assignation
+    if (_userRole == RoleUtilisateur.MEDECIN && 
+        (rappel.type == 'DEMANDE_ASSIGNATION' || 
+         rappel.titre.toLowerCase().contains('demande') ||
+         rappel.titre.toLowerCase().contains('suivre'))) {
+      type = NotificationType.demande;
+    } 
+    // Pour les patientes ou alertes importantes
+    else if (rappel.type.contains('ALERTE') || rappel.priorite == 'ELEVEE') {
       type = NotificationType.alerte;
+    }
+    // Pour les rappels CPN, CPON, vaccination, conseil (informatifs)
+    else {
+      type = NotificationType.demande; // Utilisé pour les messages informatifs aussi
     }
 
     // Formater la date
@@ -392,10 +419,35 @@ class _PageNotificationsProState extends State<PageNotificationsPro> {
       iconColor = const Color(0xFFD32F2F);
       backgroundColor = const Color(0xFFFEEBEE);
       icon = Icons.notifications_active;
+    } else if (notif.rappel != null) {
+      // Adapter l'icône selon le type de rappel
+      final rappel = notif.rappel!;
+      if (rappel.isRappelCPN || rappel.isRappelCPON) {
+        iconColor = Colors.orange;
+        backgroundColor = Colors.orange.withOpacity(0.1);
+        icon = Icons.medical_services;
+      } else if (rappel.type == 'RAPPEL_VACCINATION') {
+        iconColor = Colors.green;
+        backgroundColor = Colors.green.withOpacity(0.1);
+        icon = Icons.medication;
+      } else if (rappel.type == 'CONSEIL') {
+        iconColor = Colors.purple;
+        backgroundColor = Colors.purple.withOpacity(0.1);
+        icon = Icons.lightbulb;
+      } else if (rappel.type == 'DEMANDE_ASSIGNATION' || 
+                 rappel.titre.toLowerCase().contains('demande')) {
+        iconColor = const Color(0xFFE91E63).withOpacity(0.63);
+        backgroundColor = const Color(0xFFFCE4EC);
+        icon = Icons.person_add;
+      } else {
+        iconColor = const Color(0xFFE91E63).withOpacity(0.63);
+        backgroundColor = const Color(0xFFFCE4EC);
+        icon = Icons.notifications;
+      }
     } else {
       iconColor = const Color(0xFFE91E63).withOpacity(0.63);
       backgroundColor = const Color(0xFFFCE4EC);
-      icon = Icons.person_add;
+      icon = Icons.notifications;
     }
     
     // Vérifier si la notification est non lue

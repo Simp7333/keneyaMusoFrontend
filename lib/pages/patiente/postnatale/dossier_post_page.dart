@@ -5,9 +5,12 @@ import '../../common/page_chat.dart';
 import '../../../services/dossier_medical_service.dart';
 import '../../../services/consultation_service.dart';
 import '../../../services/conversation_service.dart';
+import '../../../services/enfant_service.dart';
 import '../../../models/dossier_medical.dart';
 import '../../../models/consultation_postnatale.dart';
 import '../../../models/patiente_detail.dart';
+import '../../../models/enfant_brief.dart';
+import '../../../utils/message_helper.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 
@@ -24,6 +27,7 @@ class _DossierPostPageState extends State<DossierPostPage> {
   final DossierMedicalService _service = DossierMedicalService();
   final ConsultationService _consultationService = ConsultationService();
   final ConversationService _conversationService = ConversationService();
+  final EnfantService _enfantService = EnfantService();
   
   String _nomPrenom = 'Chargement...';
   String _age = '--';
@@ -41,6 +45,7 @@ class _DossierPostPageState extends State<DossierPostPage> {
   };
   
   List<ConsultationPostnatale> _consultations = [];
+  List<EnfantBrief> _enfants = [];
 
   @override
   void initState() {
@@ -57,11 +62,18 @@ class _DossierPostPageState extends State<DossierPostPage> {
     try {
       // Charger les détails complets de la patiente
       // Si patienteId est fourni, charger cette patiente, sinon charger l'utilisateur connecté
-      final patienteResponse = widget.patienteId != null
-          ? await _service.getPatienteDetails(widget.patienteId!)
+      final targetPatienteId = widget.patienteId;
+      print('🔍 Chargement données patiente - patienteId: $targetPatienteId');
+      
+      final patienteResponse = targetPatienteId != null
+          ? await _service.getPatienteDetails(targetPatienteId)
           : await _service.getMyPatienteDetails();
+      
       if (patienteResponse.success && patienteResponse.data != null) {
         final patiente = patienteResponse.data!;
+        print('✅ Patiente chargée: ${patiente.fullName}');
+        print('🔍 Nombre d\'enfants dans PatienteDetail: ${patiente.enfants?.length ?? 0}');
+        
         setState(() {
           _nomPrenom = patiente.fullName;
           _telephone = patiente.telephone;
@@ -84,17 +96,60 @@ class _DossierPostPageState extends State<DossierPostPage> {
             }
           }
           
-          // Récupérer la date d'accouchement depuis le premier enfant
-          if (patiente.dateAccouchement != null) {
+          // Récupérer la date d'accouchement depuis les enfants
+          // D'abord essayer depuis PatienteDetail
+          String? dateAccouchementStr = patiente.dateAccouchement;
+          print('🔍 Date accouchement depuis getter: $dateAccouchementStr');
+          
+          // Si pas trouvée dans PatienteDetail, chercher dans la liste des enfants
+          if (dateAccouchementStr == null && patiente.enfants != null && patiente.enfants!.isNotEmpty) {
+            print('🔍 Recherche date accouchement dans la liste des enfants');
+            // Trier les enfants par date de naissance (plus ancien = premier)
+            final enfantsTries = List<EnfantDetail>.from(patiente.enfants!);
+            enfantsTries.sort((a, b) {
+              try {
+                final dateA = DateTime.parse(a.dateDeNaissance);
+                final dateB = DateTime.parse(b.dateDeNaissance);
+                return dateA.compareTo(dateB);
+              } catch (e) {
+                return 0;
+              }
+            });
+            dateAccouchementStr = enfantsTries.first.dateDeNaissance;
+            print('✅ Date accouchement trouvée depuis enfants: $dateAccouchementStr');
+          }
+          
+          if (dateAccouchementStr != null) {
             try {
-              final dateAcc = DateTime.parse(patiente.dateAccouchement!);
+              final dateAcc = DateTime.parse(dateAccouchementStr);
               _dateAccouchement = DateFormat('dd/MM/yyyy').format(dateAcc);
+              print('✅ Date accouchement formatée: $_dateAccouchement');
             } catch (e) {
+              print('❌ Erreur formatage date accouchement: $e');
               _dateAccouchement = 'Non renseigné';
             }
+          } else {
+            _dateAccouchement = 'Non renseigné';
+            print('⚠️ Date accouchement non trouvée');
+          }
+          
+          // Stocker la liste des enfants si disponible
+          if (patiente.enfants != null && patiente.enfants!.isNotEmpty) {
+            print('✅ ${patiente.enfants!.length} enfant(s) chargé(s) depuis PatienteDetail');
+            // Convertir EnfantDetail en EnfantBrief pour compatibilité
+            _enfants = patiente.enfants!.map((e) => EnfantBrief(
+              id: e.id,
+              nom: e.nom,
+              prenom: e.prenom,
+              dateDeNaissance: e.dateDeNaissance,
+              sexe: e.sexe,
+            )).toList();
+          } else {
+            print('⚠️ Aucun enfant dans PatienteDetail');
           }
         });
       } else {
+        print('❌ Erreur chargement patiente: ${patienteResponse.message}');
         // Fallback vers l'ancienne méthode si la nouvelle échoue
         final fallbackResponse = await _service.getMyPatienteInfo();
         if (fallbackResponse.success && fallbackResponse.data != null) {
@@ -105,17 +160,71 @@ class _DossierPostPageState extends State<DossierPostPage> {
           });
         }
       }
+      
+      // Si les enfants n'ont pas été chargés via PatienteDetail, les charger séparément
+      final prefs = await SharedPreferences.getInstance();
+      final finalPatienteId = targetPatienteId ?? prefs.getInt('user_id');
+      
+      if (_enfants.isEmpty && finalPatienteId != null) {
+        print('🔍 Chargement séparé des enfants pour patienteId: $finalPatienteId');
+        final enfantsResponse = await _enfantService.getEnfantsByPatiente(finalPatienteId);
+        if (enfantsResponse.success && enfantsResponse.data != null) {
+          print('✅ ${enfantsResponse.data!.length} enfant(s) chargé(s) séparément');
+          setState(() {
+            _enfants = enfantsResponse.data!;
+            
+            // Mettre à jour la date d'accouchement depuis les enfants si pas encore défini
+            if (_dateAccouchement == 'Non renseigné' && _enfants.isNotEmpty) {
+              try {
+                // Trier par date de naissance
+                final enfantsTries = List<EnfantBrief>.from(_enfants);
+                enfantsTries.sort((a, b) {
+                  try {
+                    final dateA = DateTime.parse(a.dateDeNaissance);
+                    final dateB = DateTime.parse(b.dateDeNaissance);
+                    return dateA.compareTo(dateB);
+                  } catch (e) {
+                    return 0;
+                  }
+                });
+                final dateAcc = DateTime.parse(enfantsTries.first.dateDeNaissance);
+                _dateAccouchement = DateFormat('dd/MM/yyyy').format(dateAcc);
+                print('✅ Date accouchement mise à jour depuis enfants séparés: $_dateAccouchement');
+              } catch (e) {
+                print('❌ Erreur mise à jour date accouchement: $e');
+                // Garder 'Non renseigné'
+              }
+            }
+          });
+        } else {
+          print('⚠️ Aucun enfant trouvé ou erreur: ${enfantsResponse.message}');
+        }
+      } else {
+        print('✅ ${_enfants.length} enfant(s) déjà chargé(s), pas besoin de recharger');
+      }
 
       // Charger le dossier médical
-      final dossierResponse = await _service.getMyDossierMedical();
+      // Utiliser le patienteId fourni ou celui de l'utilisateur connecté
+      final dossierResponse = targetPatienteId != null
+          ? await _service.getPatienteDossierMedical(targetPatienteId)
+          : await _service.getMyDossierMedical();
+      
       if (dossierResponse.success && dossierResponse.data != null) {
         final dossier = dossierResponse.data!;
         
         // Récupérer les formulaires CPON
         if (dossier.formulairesCPON != null && dossier.formulairesCPON!.isNotEmpty) {
-          final dernierCPON = dossier.formulairesCPON!.last;
+          // Chercher le type d'accouchement dans tous les formulaires CPON
+          String? typeAccouchement;
+          for (var formulaire in dossier.formulairesCPON!) {
+            if (formulaire.accouchementType != null && formulaire.accouchementType!.isNotEmpty) {
+              typeAccouchement = formulaire.accouchementType;
+              break; // Prendre le premier trouvé
+            }
+          }
+          
           setState(() {
-            _typeAccouchement = _formatTypeAccouchement(dernierCPON.accouchementType);
+            _typeAccouchement = _formatTypeAccouchement(typeAccouchement);
             
             // Calculer le nombre de CPON réalisés
             int nombreCPON = dossier.formulairesCPON!.length;
@@ -127,11 +236,8 @@ class _DossierPostPageState extends State<DossierPostPage> {
       }
 
       // Charger les consultations postnatales pour vérifier les CPON confirmées
-      final prefs = await SharedPreferences.getInstance();
-      final patienteId = prefs.getInt('user_id');
-      
-      if (patienteId != null) {
-        final consultationsResponse = await _consultationService.getConsultationsPostnatalesByPatiente(patienteId);
+      if (finalPatienteId != null) {
+        final consultationsResponse = await _consultationService.getConsultationsPostnatalesByPatiente(finalPatienteId);
         
         if (consultationsResponse.success && consultationsResponse.data != null) {
           setState(() {
@@ -154,8 +260,9 @@ class _DossierPostPageState extends State<DossierPostPage> {
   }
 
   String _formatTypeAccouchement(String? type) {
-    if (type == null) return 'Non renseigné';
+    if (type == null || type.isEmpty) return 'Non renseigné';
     switch (type.toUpperCase()) {
+      case 'NORMAL':
       case 'VAGINAL':
         return 'Normal (Vaginal)';
       case 'CESARIENNE':
@@ -219,20 +326,18 @@ class _DossierPostPageState extends State<DossierPostPage> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Erreur lors de l\'ouverture du chat'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showError(
+          context: context,
+          message: 'Erreur: $e',
+          title: 'Erreur',
         );
       }
     }
@@ -453,75 +558,8 @@ class _DossierPostPageState extends State<DossierPostPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Informations de la patiente
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.primaryColor.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: _buildPatienteInfoRow('Nom et Prénom', _nomPrenom),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildPatienteInfoRow('Âge', _age),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: _buildPatienteInfoRow('Téléphone', _telephone),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildPatienteInfoRow('Date d\'accouchement', _dateAccouchement),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPatienteInfoRow(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.black87,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../models/dto/dossier_submission_response.dart';
 import '../../services/dossier_submission_service.dart';
+import '../../utils/message_helper.dart';
 
 class PageDetailAlerte extends StatefulWidget {
   final DossierSubmissionResponse submission;
@@ -25,19 +26,19 @@ class _PageDetailAlerteState extends State<PageDetailAlerte> {
       setState(() => _isProcessing = false);
 
       if (response.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Soumission approuvée'),
-            backgroundColor: Colors.green,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          successTitle: 'Soumission approuvée',
+          onSuccess: () {
+            Navigator.pop(context, true); // true = recharger la liste
+          },
         );
-        Navigator.pop(context, true); // true = recharger la liste
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Erreur'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     }
@@ -59,23 +60,24 @@ class _PageDetailAlerteState extends State<PageDetailAlerte> {
       setState(() => _isProcessing = false);
 
       if (response.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Soumission rejetée'),
-            backgroundColor: Colors.orange,
-          ),
+        await MessageHelper.showWarning(
+          context: context,
+          message: response.message ?? 'Soumission rejetée',
+          title: 'Soumission rejetée',
+          onPressed: () {
+            Navigator.pop(context, true); // true = recharger la liste
+          },
         );
-        Navigator.pop(context, true); // true = recharger la liste
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Erreur'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +185,7 @@ class _PageDetailAlerteState extends State<PageDetailAlerte> {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: formData.entries.map((entry) {
+                  children: _getFilteredFormData(formData).entries.map((entry) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: Row(
@@ -262,6 +264,22 @@ class _PageDetailAlerteState extends State<PageDetailAlerte> {
         ),
       ),
     );
+  }
+
+  /// Filtre les données du formulaire selon le type de soumission
+  /// Pour CPN, ne garde que le "message" et masque les champs techniques
+  Map<String, dynamic> _getFilteredFormData(Map<String, dynamic> formData) {
+    if (widget.submission.type == 'CPN') {
+      // Pour CPN, ne garder que le message
+      final filteredData = <String, dynamic>{};
+      if (formData.containsKey('message')) {
+        filteredData['message'] = formData['message'];
+      }
+      return filteredData;
+    } else {
+      // Pour CPON, afficher tous les champs
+      return formData;
+    }
   }
 
   String _formatFieldName(String key) {

@@ -6,6 +6,7 @@ import '../../pages/gynecologue/page_ajout_accompagnement.dart';
 import '../../pages/gynecologue/page_detail_accompagnement.dart';
 import '../../routes.dart';
 import '../../widgets/pro_bottom_nav_bar.dart';
+import '../../utils/message_helper.dart';
 
 class PageAccompagnement extends StatefulWidget {
   const PageAccompagnement({super.key});
@@ -88,19 +89,17 @@ class _PageAccompagnementState extends State<PageAccompagnement> {
 
     if (mounted) {
       if (response.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Conseil supprimé avec succès'),
-            backgroundColor: Colors.green,
-          ),
+        await MessageHelper.showSuccess(
+          context: context,
+          message: 'Conseil supprimé avec succès',
+          title: 'Succès',
         );
         _loadConseils(); // Recharger la liste
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Erreur lors de la suppression'),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur',
         );
       }
     }

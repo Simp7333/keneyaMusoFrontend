@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:keneya_muso/widgets/bottom_nav_bar.dart';
 import 'package:keneya_muso/widgets/calendar_postnatale.dart';
@@ -12,9 +13,13 @@ import 'package:keneya_muso/services/consultation_service.dart';
 import 'package:keneya_muso/services/vaccination_service.dart';
 import 'package:keneya_muso/services/dashboard_service.dart';
 import 'package:keneya_muso/services/enfant_service.dart';
+import 'package:keneya_muso/services/dossier_medical_service.dart';
+import 'package:keneya_muso/services/conseil_predefini_service.dart';
 import 'package:keneya_muso/models/consultation_postnatale.dart';
 import 'package:keneya_muso/models/vaccination.dart';
 import 'package:keneya_muso/models/rappel.dart';
+import 'package:keneya_muso/models/enfant_brief.dart';
+import 'package:keneya_muso/pages/common/app_colors.dart';
 
 class DashboardPostnatalePage extends StatefulWidget {
   const DashboardPostnatalePage({super.key});
@@ -32,12 +37,17 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
   final VaccinationService _vaccinationService = VaccinationService();
   final DashboardService _dashboardService = DashboardService();
   final EnfantService _enfantService = EnfantService();
+  final DossierMedicalService _dossierService = DossierMedicalService();
   
   // Données pour le calendrier
   List<ConsultationPostnatale> _consultations = [];
   List<Vaccination> _vaccinations = [];
   List<Rappel> _rappels = [];
   bool _isLoading = true;
+  
+  // Données pour les conseils
+  String? _typeAccouchement;
+  List<EnfantBrief> _enfants = [];
 
   @override
   void initState() {
@@ -79,8 +89,11 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
         _dashboardService.getMyRappels(),
       ]);
       
-      // Charger les vaccinations séparément
+      // Charger les vaccinations séparément (cela charge aussi les enfants)
       await _loadVaccinationsForPatiente(patienteId);
+      
+      // Charger le type d'accouchement
+      await _loadTypeAccouchement(patienteId);
       
       setState(() {
         // Consultations postnatales
@@ -116,6 +129,7 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
   /// Charge les vaccinations de tous les enfants de la patiente
   Future<void> _loadVaccinationsForPatiente(int patienteId) async {
     try {
+      print('🔍 Chargement enfants et vaccinations pour patienteId: $patienteId');
       // Récupérer les enfants de la patiente
       final enfantsResponse = await _enfantService.getEnfantsByPatiente(patienteId);
       
@@ -123,20 +137,89 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
         final enfants = enfantsResponse.data!;
         print('✅ ${enfants.length} enfant(s) trouvé(s)');
         
+        // Stocker les enfants pour les conseils
+        setState(() {
+          _enfants = enfants;
+        });
+        
+        if (enfants.isEmpty) {
+          print('⚠️ Aucun enfant trouvé pour cette patiente');
+          _vaccinations = [];
+          return;
+        }
+        
         // Charger les vaccinations de chaque enfant
         List<Vaccination> allVaccinations = [];
         for (var enfant in enfants) {
+          print('🔍 Chargement vaccinations pour enfant: ${enfant.nomComplet} (ID: ${enfant.id})');
           final vaccinationsResponse = await _vaccinationService.getVaccinationsByEnfant(enfant.id);
           
           if (vaccinationsResponse.success && vaccinationsResponse.data != null) {
-            allVaccinations.addAll(vaccinationsResponse.data!);
+            final vaccs = vaccinationsResponse.data!;
+            print('✅ ${vaccs.length} vaccination(s) trouvée(s) pour ${enfant.nomComplet}');
+            allVaccinations.addAll(vaccs);
+          } else {
+            print('⚠️ Aucune vaccination trouvée pour ${enfant.nomComplet}: ${vaccinationsResponse.message}');
           }
         }
         
-        _vaccinations = allVaccinations;
+        setState(() {
+          _vaccinations = allVaccinations;
+        });
+        print('✅ Total: ${_vaccinations.length} vaccination(s) chargée(s) pour tous les enfants');
+      } else {
+        print('❌ Erreur chargement enfants: ${enfantsResponse.message}');
+        _vaccinations = [];
       }
     } catch (e) {
       print('❌ Erreur chargement vaccinations: $e');
+      _vaccinations = [];
+    }
+  }
+  
+  /// Charge le type d'accouchement depuis le dossier médical
+  Future<void> _loadTypeAccouchement(int patienteId) async {
+    try {
+      final dossierResponse = await _dossierService.getMyDossierMedical();
+      
+      if (dossierResponse.success && dossierResponse.data != null) {
+        final dossier = dossierResponse.data!;
+        
+        // Récupérer les formulaires CPON
+        if (dossier.formulairesCPON != null && dossier.formulairesCPON!.isNotEmpty) {
+          // Chercher le type d'accouchement dans tous les formulaires CPON
+          String? typeAccouchement;
+          for (var formulaire in dossier.formulairesCPON!) {
+            if (formulaire.accouchementType != null && formulaire.accouchementType!.isNotEmpty) {
+              typeAccouchement = formulaire.accouchementType;
+              break; // Prendre le premier trouvé
+            }
+          }
+          
+          if (typeAccouchement != null) {
+            // Formater le type d'accouchement
+            String typeFormate;
+            switch (typeAccouchement.toUpperCase()) {
+              case 'NORMAL':
+              case 'VAGINAL':
+                typeFormate = 'Normal (Vaginal)';
+                break;
+              case 'CESARIENNE':
+                typeFormate = 'Césarienne';
+                break;
+              default:
+                typeFormate = typeAccouchement;
+            }
+            
+            setState(() {
+              _typeAccouchement = typeFormate;
+            });
+            print('✅ Type d\'accouchement chargé: $_typeAccouchement');
+          }
+        }
+      }
+    } catch (e) {
+      print('❌ Erreur chargement type accouchement: $e');
     }
   }
 
@@ -369,6 +452,41 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
       }
     }
     
+    // Ajouter les conseils postnatals selon le type d'accouchement (maximum 3 conseils)
+    final conseilsPostnatals = ConseilPredefiniService.getConseilsPostnatals(
+      typeAccouchement: _typeAccouchement,
+    );
+    for (var conseil in conseilsPostnatals.take(3)) {
+      eventCards.add(
+        TaskCard(
+          icon: conseil.icon,
+          iconColor: conseil.color,
+          title: conseil.titre,
+          subtitle: conseil.description,
+        ),
+      );
+      eventCards.add(const SizedBox(height: 16));
+    }
+    
+    // Ajouter les conseils pour chaque enfant selon son âge (maximum 2 conseils par enfant, 1 enfant à la fois)
+    if (_enfants.isNotEmpty) {
+      final premierEnfant = _enfants.first;
+      final ageEnJours = ConseilPredefiniService.calculerAgeEnJours(premierEnfant.dateDeNaissance);
+      final conseilsEnfant = ConseilPredefiniService.getConseilsPourEnfant(ageEnJours);
+      
+      for (var conseil in conseilsEnfant.take(2)) {
+        eventCards.add(
+          TaskCard(
+            icon: conseil.icon,
+            iconColor: conseil.color,
+            title: '${conseil.titre} - ${premierEnfant.nomComplet}',
+            subtitle: conseil.description,
+          ),
+        );
+        eventCards.add(const SizedBox(height: 16));
+      }
+    }
+    
     return Column(children: eventCards);
   }
   
@@ -394,11 +512,20 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.white,
         automaticallyImplyLeading: false,
+        toolbarHeight: 80,
         title: Image.asset(
           'assets/images/logo/logoknya.png', // Utilisation du logo
-          height: 40,
+          height: 80,
         ),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.white,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        shadowColor: Colors.transparent,
         actions: [
           Stack(
             children: [
@@ -485,38 +612,49 @@ class _DashboardPostnatalePageState extends State<DashboardPostnatalePage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 // Bouton Audio (en haut)
-                FloatingActionButton(
-                  heroTag: "audio",
-                  onPressed: () => print('Action Audio'), // TODO: Implémenter l'action audio
-                  backgroundColor: const Color(0xFFE91E63).withOpacity(0.30), // Background 30%
-                  elevation: 4,
+                Container(
+                  width: 56,
+                  height: 56,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withOpacity(0.25),
+                    shape: BoxShape.circle,
+                  ),
                   child: Icon(
                     Icons.volume_up,
-                    color: const Color(0xFFE91E63).withOpacity(0.63), // Icône 63%
-                    size: 28,
+                    color: AppColors.primaryColor,
+                    size: 20,
                   ),
                 ),
 
                 const SizedBox(height: 16),
                 // Bouton Livre (au milieu)
-                FloatingActionButton(
-                  heroTag: "livre",
-                  onPressed: () {
+                GestureDetector(
+                  onTap: () {
                     Navigator.pushNamed(context, AppRoutes.patienteDossierPost);
                   },
-                  backgroundColor: const Color(0xFFE91E63).withOpacity(0.30), // Background 30%
-                  elevation: 4,
-                  child: const Icon(
-                    Icons.book_outlined,
-                    color: Color(0xFFE91E63), // Icône 100%
-                    size: 28,
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withOpacity(0.25),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.book_outlined,
+                      color: AppColors.primaryColor,
+                      size: 20,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 // Bouton Bébé
                 FloatingActionButton(
                   heroTag: "bebe",
-                  onPressed: () => print('Action Bébé'), // TODO: Implémenter l'action bébé
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRoutes.patienteEnfants);
+                  },
                   backgroundColor: Colors.white,
                   elevation: 4,
                   child: const Icon(Icons.child_friendly, color: Colors.pinkAccent, size: 28),

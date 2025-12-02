@@ -2,14 +2,14 @@
 class ApiConfig {
   // ⚙️ CONFIGURATION SIMPLE - Choisissez votre environnement :
   
-  // 📱 Pour émulateur Android (par défaut)
-  static const String baseUrl = 'http://10.0.2.2:8080';
+  // 📱 Pour émulateur Android
+  // static const String baseUrl = 'http://10.0.2.2:8080';
   
   // 🍎 Pour iOS simulator - Décommentez la ligne ci-dessous et commentez celle du dessus
   // static const String baseUrl = 'http://localhost:8080';
   
-  // 📲 Pour appareil physique - Remplacez YOUR_IP par votre IP locale (ex: 192.168.1.10)
-  // static const String baseUrl = 'http://YOUR_IP:8080';
+  // 📲 Pour appareil physique - Utilisez l'IP de votre ordinateur sur le réseau local
+  static const String baseUrl = 'http://192.168.43.183:8080';
   
   // Endpoints d'authentification
   static const String loginEndpoint = '/api/auth/login';

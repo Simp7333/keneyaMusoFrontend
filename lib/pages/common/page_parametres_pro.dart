@@ -140,10 +140,6 @@ class _PageParametresProState extends State<PageParametresPro> {
                     _buildProfileCard(),
               const SizedBox(height: 24),
               _buildNotificationsTile(),
-              if (widget.isPatiente) ...[
-                const SizedBox(height: 16),
-                _buildAideVideoTile(),
-              ],
               const SizedBox(height: 16),
               _buildLogoutTile(),
                     const Spacer(),
@@ -529,23 +525,6 @@ class _PageParametresProState extends State<PageParametresPro> {
         ),
       );
     }
-  }
-
-  Widget _buildAideVideoTile() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: ListTile(
-        leading: const Icon(Icons.video_library_outlined, color: Colors.black),
-        title: const Text('Aide Vidéo'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () {
-          // TODO: Navigate to video help page
-        },
-      ),
-    );
   }
 
   void _showNotificationSettings(BuildContext context) {

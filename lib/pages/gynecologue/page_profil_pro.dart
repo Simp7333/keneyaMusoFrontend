@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../../services/professionnel_sante_service.dart';
 import '../../models/professionnel_sante.dart';
+import '../../utils/message_helper.dart';
 
 class PageProfilPro extends StatefulWidget {
   const PageProfilPro({super.key});
@@ -16,7 +17,9 @@ class _PageProfilProState extends State<PageProfilPro> {
   late TextEditingController _prenomController;
   late TextEditingController _phoneController;
   late TextEditingController _specialtyController;
-  late TextEditingController _locationController;
+  late TextEditingController _lieuTravailController;
+  late TextEditingController _adresseController;
+  late TextEditingController _identifiantProController;
   File? _image;
   bool _isEditing = false;
   bool _isLoading = true;
@@ -34,7 +37,9 @@ class _PageProfilProState extends State<PageProfilPro> {
     _prenomController = TextEditingController();
     _phoneController = TextEditingController();
     _specialtyController = TextEditingController();
-    _locationController = TextEditingController();
+    _lieuTravailController = TextEditingController();
+    _adresseController = TextEditingController();
+    _identifiantProController = TextEditingController();
     _loadProfile();
   }
 
@@ -44,7 +49,9 @@ class _PageProfilProState extends State<PageProfilPro> {
     _prenomController.dispose();
     _phoneController.dispose();
     _specialtyController.dispose();
-    _locationController.dispose();
+    _lieuTravailController.dispose();
+    _adresseController.dispose();
+    _identifiantProController.dispose();
     super.dispose();
   }
 
@@ -65,7 +72,9 @@ class _PageProfilProState extends State<PageProfilPro> {
           _prenomController.text = _professionnel!.prenom;
           _phoneController.text = _professionnel!.telephone;
           _specialtyController.text = _professionnel!.specialite;
-          _locationController.text = _professionnel!.centreSante ?? _professionnel!.adresse ?? '';
+          _lieuTravailController.text = _professionnel!.centreSante ?? '';
+          _adresseController.text = _professionnel!.adresse ?? '';
+          _identifiantProController.text = _professionnel!.identifiantProfessionnel;
         } else {
           _errorMessage = response.message ?? 'Erreur lors du chargement du profil';
         }
@@ -91,16 +100,18 @@ class _PageProfilProState extends State<PageProfilPro> {
         if (response.success) {
           _isEditing = false;
           _professionnel = response.data;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profil mis à jour avec succès'),
-              backgroundColor: Colors.green,
-            ),
-          );
         } else {
           _errorMessage = response.message ?? 'Erreur lors de la sauvegarde';
         }
       });
+      
+      if (response.success) {
+        await MessageHelper.showSuccess(
+          context: context,
+          message: 'Profil mis à jour avec succès',
+          title: 'Succès',
+        );
+      }
     }
   }
 
@@ -199,9 +210,24 @@ class _PageProfilProState extends State<PageProfilPro> {
                       ),
                       const SizedBox(height: 16),
                       _buildInfoField(
-                        label: 'Localisation',
-                        controller: _locationController,
+                        label: 'Identifiant Professionnel',
+                        controller: _identifiantProController,
+                        isEditing: false, // L'identifiant professionnel n'est pas modifiable
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInfoField(
+                        label: 'Lieu de travail',
+                        controller: _lieuTravailController,
                         isEditing: _isEditing,
+                        hintText: 'Centre de santé, clinique, hôpital...',
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInfoField(
+                        label: 'Adresse',
+                        controller: _adresseController,
+                        isEditing: _isEditing,
+                        hintText: 'Adresse complète',
+                        maxLines: 2,
                       ),
                       if (_isEditing) const SizedBox(height: 40),
                       if (_isEditing) _buildSaveButton(),
@@ -254,6 +280,8 @@ class _PageProfilProState extends State<PageProfilPro> {
     required TextEditingController controller,
     required bool isEditing,
     TextInputType? keyboardType,
+    String? hintText,
+    int maxLines = 1,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +299,9 @@ class _PageProfilProState extends State<PageProfilPro> {
           controller: controller,
           enabled: isEditing,
           keyboardType: keyboardType,
+          maxLines: maxLines,
           decoration: InputDecoration(
+            hintText: hintText,
             filled: true,
             fillColor: Colors.grey.shade100,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),

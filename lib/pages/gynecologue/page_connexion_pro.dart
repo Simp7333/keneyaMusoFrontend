@@ -5,6 +5,7 @@ import '../common/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../models/dto/login_request.dart';
 import '../../models/enums/role_utilisateur.dart';
+import '../../utils/message_helper.dart';
 
 class PageConnexionPro extends StatefulWidget {
   const PageConnexionPro({super.key});
@@ -215,11 +216,10 @@ class _PageConnexionProState extends State<PageConnexionPro> {
 
   void _handleLogin() async {
     if (_phoneController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez remplir tous les champs'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Veuillez remplir tous les champs',
+        title: 'Champs requis',
       );
       return;
     }
@@ -240,40 +240,37 @@ class _PageConnexionProState extends State<PageConnexionPro> {
       if (response.success && response.data != null) {
         // Vérifier que c'est bien un médecin
         if (response.data!.role != RoleUtilisateur.MEDECIN) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ce compte n\'est pas un compte professionnel'),
-              backgroundColor: Colors.red,
-            ),
+          await MessageHelper.showError(
+            context: context,
+            message: 'Ce compte n\'est pas un compte professionnel',
+            title: 'Erreur',
           );
           setState(() => _isLoading = false);
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Connexion réussie ! Bienvenue Dr. ${response.data!.nom}'),
-            backgroundColor: Colors.green,
-          ),
+        await MessageHelper.showSuccess(
+          context: context,
+          message: 'Connexion réussie ! Bienvenue Dr. ${response.data!.nom}',
+          title: 'Connexion réussie',
+          onPressed: () {
+            // Redirection vers le dashboard professionnel
+            Navigator.pushReplacementNamed(context, AppRoutes.proDashboard);
+          },
         );
-
-        // Redirection vers le dashboard professionnel
-        Navigator.pushReplacementNamed(context, AppRoutes.proDashboard);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message),
-            backgroundColor: Colors.red,
-          ),
+        await MessageHelper.showApiResponse(
+          context: context,
+          response: response,
+          errorTitle: 'Erreur de connexion',
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+      await MessageHelper.showError(
+        context: context,
+        message: 'Erreur: $e',
+        title: 'Erreur',
       );
     } finally {
       if (mounted) {

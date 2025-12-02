@@ -242,5 +242,47 @@ class DossierMedicalService {
       );
     }
   }
+
+  /// Récupère le dossier médical d'une patiente spécifique (pour les professionnels de santé)
+  Future<ApiResponse<DossierMedical>> getPatienteDossierMedical(int patienteId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        return ApiResponse<DossierMedical>(
+          success: false,
+          message: 'Non authentifié. Veuillez vous connecter.',
+        );
+      }
+
+      final url = Uri.parse('${ApiConfig.baseUrl}/api/patients/$patienteId/dossier-medical');
+
+      final response = await http.get(
+        url,
+        headers: ApiConfig.headersWithAuth(token),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final dossier = DossierMedical.fromJson(jsonResponse);
+        return ApiResponse<DossierMedical>(
+          success: true,
+          message: 'Dossier médical récupéré avec succès',
+          data: dossier,
+        );
+      } else {
+        return ApiResponse<DossierMedical>(
+          success: false,
+          message: 'Dossier médical non trouvé ou erreur lors de la récupération',
+        );
+      }
+    } catch (e) {
+      return ApiResponse<DossierMedical>(
+        success: false,
+        message: 'Erreur de connexion au serveur: ${e.toString()}',
+      );
+    }
+  }
 }
 
