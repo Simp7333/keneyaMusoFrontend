@@ -27,6 +27,70 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
+  // Sages-femmes statiques (même liste que dans personnel_page.dart)
+  static final List<ProfessionnelSante> _staticSagesFemmes = [
+    ProfessionnelSante(
+      id: 1001,
+      nom: 'Diallo',
+      prenom: 'Aissata',
+      telephone: '761234567',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF001',
+      adresse: 'Bamako, Commune IV, Avenue du Mali',
+      centreSante: 'Centre de Santé de Référence de Commune IV',
+      heureVisites: 'Lundi - Vendredi: 8h - 16h',
+      nombreSuivis: 45,
+    ),
+    ProfessionnelSante(
+      id: 1002,
+      nom: 'Traoré',
+      prenom: 'Fatoumata',
+      telephone: '762345678',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF002',
+      adresse: 'Bamako, Commune I, Quartier Niaréla',
+      centreSante: 'Centre de Santé Communautaire de Niaréla',
+      heureVisites: 'Lundi - Samedi: 7h - 18h',
+      nombreSuivis: 62,
+    ),
+    ProfessionnelSante(
+      id: 1003,
+      nom: 'Keita',
+      prenom: 'Mariam',
+      telephone: '763456789',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF003',
+      adresse: 'Bamako, Commune II, Badalabougou',
+      centreSante: 'Centre de Santé de Badalabougou',
+      heureVisites: 'Lundi - Vendredi: 9h - 17h',
+      nombreSuivis: 38,
+    ),
+    ProfessionnelSante(
+      id: 1004,
+      nom: 'Sangaré',
+      prenom: 'Aminata',
+      telephone: '764567890',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF004',
+      adresse: 'Bamako, Commune VI, Faladié',
+      centreSante: 'Centre de Santé de Faladié',
+      heureVisites: 'Lundi - Vendredi: 8h - 15h',
+      nombreSuivis: 51,
+    ),
+    ProfessionnelSante(
+      id: 1005,
+      nom: 'Coulibaly',
+      prenom: 'Kadiatou',
+      telephone: '765678901',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF005',
+      adresse: 'Bamako, Commune III, Sotuba',
+      centreSante: 'Centre de Santé de Sotuba',
+      heureVisites: 'Lundi - Samedi: 8h - 17h',
+      nombreSuivis: 67,
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +118,32 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
     
     print('🔍 Chargement du professionnel avec ID: ${widget.professionnelId}');
     
+    // Vérifier d'abord si c'est une sage-femme statique
+    final staticSageFemme = _staticSagesFemmes.firstWhere(
+      (p) => p.id == widget.professionnelId,
+      orElse: () => ProfessionnelSante(
+        id: 0,
+        nom: '',
+        prenom: '',
+        telephone: '',
+        specialite: '',
+        identifiantProfessionnel: '',
+      ),
+    );
+    
+    if (staticSageFemme.id != 0) {
+      // C'est une sage-femme statique
+      print('✅ Sage-femme statique trouvée: ${staticSageFemme.fullName}');
+      if (mounted) {
+        setState(() {
+          _professionnel = staticSageFemme;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+    
+    // Sinon, charger depuis le backend
     try {
       final response = await _professionnelSanteService.getProfessionnelSanteById(widget.professionnelId);
       
@@ -407,6 +497,22 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
                                       _professionnel!.adresse ?? 'Non spécifiée',
                                     ),
                                     const Divider(height: 24, thickness: 1),
+                                    if (_professionnel!.centreSante != null && _professionnel!.centreSante!.isNotEmpty)
+                                      ...[
+                                        _buildInfoField(
+                                          'Centre de santé',
+                                          _professionnel!.centreSante!,
+                                        ),
+                                        const Divider(height: 24, thickness: 1),
+                                      ],
+                                    if (_professionnel!.heureVisites != null && _professionnel!.heureVisites!.isNotEmpty)
+                                      ...[
+                                        _buildInfoField(
+                                          'Horaires',
+                                          _professionnel!.heureVisites!,
+                                        ),
+                                        const Divider(height: 24, thickness: 1),
+                                      ],
                                     _buildInfoField(
                                       'Téléphone',
                                       _professionnel!.telephone,
@@ -482,6 +588,8 @@ class _PageProfilPersonnelState extends State<PageProfilPersonnel> {
         return 'Pédiatre';
       case 'GENERALISTE':
         return 'Médecin généraliste';
+      case 'SAGE_FEMME':
+        return 'Sage-femme';
       default:
         return specialite;
     }

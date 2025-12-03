@@ -17,6 +17,11 @@ import 'package:keneya_muso/models/grossesse.dart';
 import 'package:keneya_muso/models/consultation_prenatale.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:keneya_muso/services/conseil_predefini_service.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:typed_data';
 
 class PageTableauBord extends StatefulWidget {
   const PageTableauBord({super.key});
@@ -36,10 +41,13 @@ class _PageTableauBordState extends State<PageTableauBord> {
   Grossesse? _grossesseActive;
   bool _isLoading = true;
   int _unreadCount = 0;
+  AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
 
   @override
   void initState() {
     super.initState();
+    _initAudioPlayer();
     _loadSuiviType();
     // Charger les données immédiatement
     _loadData();
@@ -50,6 +58,22 @@ class _PageTableauBordState extends State<PageTableauBord> {
         _loadData();
       }
     });
+  }
+
+  Future<void> _initAudioPlayer() async {
+    _audioPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSuiviType() async {
@@ -418,6 +442,99 @@ class _PageTableauBordState extends State<PageTableauBord> {
     }
   }
 
+  Future<void> _lireInformationsTableauBord() async {
+    if (_isPlaying) {
+      // Arrêter la lecture si elle est en cours
+      await _audioPlayer.stop();
+      setState(() {
+        _isPlaying = false;
+      });
+      return;
+    }
+
+    try {
+      // Essayer différents formats dans l'ordre de préférence
+      final audioAssetPaths = [
+        'assets/audio/tableau_bord_voix.mp3',
+        'assets/audio/tableau_bord_voix.m4a',
+        'assets/audio/tableau_bord_voix.aac',
+      ];
+      
+      String? workingPath;
+      Exception? lastError;
+      
+      // Essayer chaque format jusqu'à trouver un qui fonctionne
+      for (final assetPath in audioAssetPaths) {
+        try {
+          print('🔊 Tentative de chargement audio depuis asset: $assetPath');
+          
+          // Charger le fichier depuis les assets en tant que ByteData
+          ByteData data;
+          try {
+            data = await rootBundle.load(assetPath);
+          } catch (e) {
+            print('⚠️ Fichier $assetPath non trouvé dans les assets: $e');
+            continue;
+          }
+          
+          // Créer un fichier temporaire
+          final tempDir = await getTemporaryDirectory();
+          final extension = assetPath.split('.').last;
+          final tempFile = File('${tempDir.path}/tableau_bord_voix_${DateTime.now().millisecondsSinceEpoch}.$extension');
+          await tempFile.writeAsBytes(data.buffer.asUint8List());
+          
+          print('📁 Fichier temporaire créé: ${tempFile.path}');
+          
+          // Réinitialiser le lecteur
+          await _audioPlayer.stop();
+          
+          // Charger le fichier temporaire
+          await _audioPlayer.setFilePath(tempFile.path);
+          
+          // Vérifier si le fichier est valide en essayant de récupérer la durée
+          final duration = await _audioPlayer.duration;
+          if (duration != null && duration > Duration.zero) {
+            workingPath = tempFile.path;
+            print('✅ Fichier audio valide trouvé: $assetPath (durée: ${duration.inSeconds}s)');
+            break;
+          }
+        } catch (e) {
+          print('⚠️ Format $assetPath non supporté: $e');
+          lastError = e is Exception ? e : Exception(e.toString());
+          continue;
+        }
+      }
+      
+      if (workingPath == null) {
+        throw lastError ?? Exception('Aucun format audio supporté trouvé. Formats essayés: ${audioAssetPaths.join(", ")}');
+      }
+      
+      // Jouer l'audio
+      await _audioPlayer.play();
+      
+      setState(() {
+        _isPlaying = true;
+      });
+      
+      print('✅ Lecture audio démarrée: $workingPath');
+    } catch (e, stackTrace) {
+      print('❌ Erreur lecture audio: $e');
+      print('📋 Stack trace: $stackTrace');
+      setState(() {
+        _isPlaying = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: Impossible de lire le fichier audio. Vérifiez que le fichier existe dans assets/audio/ et qu\'il est dans un format valide (MP3, M4A). Erreur: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}...'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -533,18 +650,23 @@ class _PageTableauBordState extends State<PageTableauBord> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.25),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.volume_up,
-              color: AppColors.primaryColor,
-              size: 20,
+          GestureDetector(
+            onTap: _lireInformationsTableauBord,
+            child: Container(
+              width: 56,
+              height: 56,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _isPlaying 
+                    ? AppColors.primaryColor.withOpacity(0.5)
+                    : AppColors.primaryColor.withOpacity(0.25),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isPlaying ? Icons.volume_off : Icons.volume_up,
+                color: AppColors.primaryColor,
+                size: 20,
+              ),
             ),
           ),
           const SizedBox(height: 8),

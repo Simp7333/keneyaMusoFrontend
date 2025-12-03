@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../routes.dart';
 import '../../widgets/page_animation_mixin.dart';
 import '../common/app_colors.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:typed_data';
 
 class TypeSuiviPage extends StatefulWidget {
   const TypeSuiviPage({super.key});
@@ -15,11 +20,30 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
     with TickerProviderStateMixin, PageAnimationMixin {
   String? _selectedSuiviType;
   String _prenom = '';
+  AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
 
   @override
   void initState() {
     super.initState();
+    _initAudioPlayer();
     _loadUserData();
+  }
+
+  Future<void> _initAudioPlayer() async {
+    _audioPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -84,6 +108,33 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
                                     fontSize: 34, fontWeight: FontWeight.bold)),
                             const SizedBox(width: 8),
                             const Text('🎉', style: TextStyle(fontSize: 28)),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: _lireVoixTypeSuivi,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _isPlaying 
+                                      ? AppColors.primaryPink.withOpacity(0.5)
+                                      : AppColors.primaryPink.withOpacity(0.25),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  _isPlaying ? Icons.volume_off : Icons.volume_up,
+                                  color: AppColors.primaryPink,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -187,6 +238,99 @@ class _TypeSuiviPageState extends State<TypeSuiviPage>
         ),
       ),
     );
+  }
+
+  Future<void> _lireVoixTypeSuivi() async {
+    if (_isPlaying) {
+      // Arrêter la lecture si elle est en cours
+      await _audioPlayer.stop();
+      setState(() {
+        _isPlaying = false;
+      });
+      return;
+    }
+
+    try {
+      // Essayer différents formats dans l'ordre de préférence
+      final audioAssetPaths = [
+        'assets/audio/type_suivi_voix.mp3',
+        'assets/audio/type_suivi_voix.m4a',
+        'assets/audio/type_suivi_voix.aac',
+      ];
+      
+      String? workingPath;
+      Exception? lastError;
+      
+      // Essayer chaque format jusqu'à trouver un qui fonctionne
+      for (final assetPath in audioAssetPaths) {
+        try {
+          print('🔊 Tentative de chargement audio depuis asset: $assetPath');
+          
+          // Charger le fichier depuis les assets en tant que ByteData
+          ByteData data;
+          try {
+            data = await rootBundle.load(assetPath);
+          } catch (e) {
+            print('⚠️ Fichier $assetPath non trouvé dans les assets: $e');
+            continue;
+          }
+          
+          // Créer un fichier temporaire
+          final tempDir = await getTemporaryDirectory();
+          final extension = assetPath.split('.').last;
+          final tempFile = File('${tempDir.path}/type_suivi_voix_${DateTime.now().millisecondsSinceEpoch}.$extension');
+          await tempFile.writeAsBytes(data.buffer.asUint8List());
+          
+          print('📁 Fichier temporaire créé: ${tempFile.path}');
+          
+          // Réinitialiser le lecteur
+          await _audioPlayer.stop();
+          
+          // Charger le fichier temporaire
+          await _audioPlayer.setFilePath(tempFile.path);
+          
+          // Vérifier si le fichier est valide en essayant de récupérer la durée
+          final duration = await _audioPlayer.duration;
+          if (duration != null && duration > Duration.zero) {
+            workingPath = tempFile.path;
+            print('✅ Fichier audio valide trouvé: $assetPath (durée: ${duration.inSeconds}s)');
+            break;
+          }
+        } catch (e) {
+          print('⚠️ Format $assetPath non supporté: $e');
+          lastError = e is Exception ? e : Exception(e.toString());
+          continue;
+        }
+      }
+      
+      if (workingPath == null) {
+        throw lastError ?? Exception('Aucun format audio supporté trouvé. Formats essayés: ${audioAssetPaths.join(", ")}');
+      }
+      
+      // Jouer l'audio
+      await _audioPlayer.play();
+      
+      setState(() {
+        _isPlaying = true;
+      });
+      
+      print('✅ Lecture audio démarrée: $workingPath');
+    } catch (e, stackTrace) {
+      print('❌ Erreur lecture audio: $e');
+      print('📋 Stack trace: $stackTrace');
+      setState(() {
+        _isPlaying = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: Impossible de lire le fichier audio. Vérifiez que le fichier existe dans assets/audio/ et qu\'il est dans un format valide (MP3, M4A). Erreur: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}...'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    }
   }
 
   void _proceedToDashboard() async {

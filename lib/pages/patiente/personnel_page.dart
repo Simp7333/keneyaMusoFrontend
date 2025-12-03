@@ -23,6 +23,70 @@ class _PersonnelPageState extends State<PersonnelPage> {
   List<ProfessionnelSante> _filteredProfessionnels = [];
   bool _isLoading = true;
 
+  // Sages-femmes statiques pour la section
+  static final List<ProfessionnelSante> _staticSagesFemmes = [
+    ProfessionnelSante(
+      id: 1001,
+      nom: 'Diallo',
+      prenom: 'Aissata',
+      telephone: '761234567',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF001',
+      adresse: 'Bamako, Commune IV, Avenue du Mali',
+      centreSante: 'Centre de Santé de Référence de Commune IV',
+      heureVisites: 'Lundi - Vendredi: 8h - 16h',
+      nombreSuivis: 45,
+    ),
+    ProfessionnelSante(
+      id: 1002,
+      nom: 'Traoré',
+      prenom: 'Fatoumata',
+      telephone: '762345678',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF002',
+      adresse: 'Bamako, Commune I, Quartier Niaréla',
+      centreSante: 'Centre de Santé Communautaire de Niaréla',
+      heureVisites: 'Lundi - Samedi: 7h - 18h',
+      nombreSuivis: 62,
+    ),
+    ProfessionnelSante(
+      id: 1003,
+      nom: 'Keita',
+      prenom: 'Mariam',
+      telephone: '763456789',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF003',
+      adresse: 'Bamako, Commune II, Badalabougou',
+      centreSante: 'Centre de Santé de Badalabougou',
+      heureVisites: 'Lundi - Vendredi: 9h - 17h',
+      nombreSuivis: 38,
+    ),
+    ProfessionnelSante(
+      id: 1004,
+      nom: 'Sangaré',
+      prenom: 'Aminata',
+      telephone: '764567890',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF004',
+      adresse: 'Bamako, Commune VI, Faladié',
+      centreSante: 'Centre de Santé de Faladié',
+      heureVisites: 'Lundi - Vendredi: 8h - 15h',
+      nombreSuivis: 51,
+    ),
+    ProfessionnelSante(
+      id: 1005,
+      nom: 'Coulibaly',
+      prenom: 'Kadiatou',
+      telephone: '765678901',
+      specialite: 'SAGE_FEMME',
+      identifiantProfessionnel: 'SF005',
+      adresse: 'Bamako, Commune III, Sotuba',
+      centreSante: 'Centre de Santé de Sotuba',
+      heureVisites: 'Lundi - Samedi: 8h - 17h',
+      nombreSuivis: 67,
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -56,30 +120,38 @@ class _PersonnelPageState extends State<PersonnelPage> {
         if (mounted) {
           setState(() {
             _allProfessionnels = [];
-            _filteredProfessionnels = [];
+            // Même en cas d'erreur, filtrer pour afficher les sages-femmes statiques
+            _filterProfessionnels();
             _isLoading = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response.message ?? 'Erreur de chargement'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          // Ne pas afficher d'erreur si on a des données statiques à afficher
+          if (_filteredProfessionnels.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(response.message ?? 'Erreur de chargement'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _allProfessionnels = [];
-          _filteredProfessionnels = [];
+          // Même en cas d'erreur, filtrer pour afficher les sages-femmes statiques
+          _filterProfessionnels();
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Ne pas afficher d'erreur si on a des données statiques à afficher
+        if (_filteredProfessionnels.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -87,11 +159,21 @@ class _PersonnelPageState extends State<PersonnelPage> {
   void _filterProfessionnels() {
     setState(() {
       if (_selectedSegment == 0) {
-        // Filtrer pour les sages-femmes (GENERALISTE selon la migration)
-        // Les sages-femmes sont maintenant des médecins avec spécialité GENERALISTE
-        _filteredProfessionnels = _allProfessionnels
-            .where((p) => p.specialite.toUpperCase() == 'GENERALISTE')
+        // Filtrer pour les sages-femmes (SAGE_FEMME ou GENERALISTE)
+        final sagesFemmesFromBackend = _allProfessionnels
+            .where((p) => 
+                p.specialite.toUpperCase() == 'SAGE_FEMME' ||
+                p.specialite.toUpperCase() == 'GENERALISTE')
             .toList();
+        
+        // Combiner avec les sages-femmes statiques
+        // Éviter les doublons en vérifiant les IDs
+        final backendIds = sagesFemmesFromBackend.map((p) => p.id).toSet();
+        final staticSagesFemmes = _staticSagesFemmes
+            .where((p) => !backendIds.contains(p.id))
+            .toList();
+        
+        _filteredProfessionnels = [...sagesFemmesFromBackend, ...staticSagesFemmes];
       } else {
         // Filtrer pour les médecins spécialisés (GYNECOLOGUE, PEDIATRE)
         _filteredProfessionnels = _allProfessionnels
@@ -236,6 +318,8 @@ class _PersonnelPageState extends State<PersonnelPage> {
         return 'Pédiatre';
       case 'GENERALISTE':
         return 'Médecin généraliste / Sage-femme';
+      case 'SAGE_FEMME':
+        return 'Sage-femme';
       default:
         return specialite;
     }
